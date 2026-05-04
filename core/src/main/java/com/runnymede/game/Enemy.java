@@ -1,5 +1,9 @@
 package com.runnymede.game;
 
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Sprite;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+
 public class Enemy {
     private float xPos;
     private float yPos;
@@ -11,7 +15,6 @@ public class Enemy {
     private boolean alive;
 
     public Enemy(float xPos, float yPos, float speed, int health, int damage, Texture texture) {
-        super();
         this.xPos = xPos;
         this.yPos = yPos;
         this.speed = speed;
