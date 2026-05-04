@@ -70,14 +70,14 @@ public class Enemy {
     public void setPosition(float xPos, float yPos) {
         this.xPos = xPos;
         this.yPos = yPos;
-        alive = false;
     }
 
     public void remove() {
         // Implementation for removing the enemy
-        xPos = -100; // Move off-screen or set a flag for removal
+        xPos = -100; 
         yPos = -100;
         health = 0; // Ensure health is set to 0 to indicate removal
+        alive = false;
     }
 
     public float getAngleToPoint(float targetX, float targetY) {
@@ -87,10 +87,10 @@ public class Enemy {
         return resultingAngle;
     }
 
-    public void moveTowardsPoint(float targetX, float targetY) {
+    public void moveTowardsPoint(float deltaTime, float targetX, float targetY) {
         float angle = getAngleToPoint(targetX, targetY);
-        xPos += speed * Math.cos(angle);
-        yPos += speed * Math.sin(angle);
+        xPos += speed * Math.cos(angle) * deltaTime;
+        yPos += speed * Math.sin(angle) * deltaTime;
     }
 
     public void draw(SpriteBatch batch) {
