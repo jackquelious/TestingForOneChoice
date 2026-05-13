@@ -19,16 +19,22 @@ import com.badlogic.gdx.*;
 
 public class MainGame implements ApplicationListener{
     SpriteBatch spriteBatch;
+    ArrayList<Enemy> enemies;
 
     public void create(){
         spriteBatch = new SpriteBatch();
+        enemies = new ArrayList<Enemy>();
     }
 
     public void resize(int width, int height) {
     }
 
     public void render() {
+        input();
+        logic();
+        draw();
     }
+
 
     public void pause() {
     }
@@ -38,5 +44,17 @@ public class MainGame implements ApplicationListener{
 
     public void dispose() {
         spriteBatch.dispose();
+    }
+
+    public void input(){
+
+    }
+
+    public void logic(){
+
+    }
+
+    public void draw(){
+
     }
 }
