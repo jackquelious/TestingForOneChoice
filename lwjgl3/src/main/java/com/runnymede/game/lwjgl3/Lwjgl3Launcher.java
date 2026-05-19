@@ -2,17 +2,27 @@ package com.runnymede.game.lwjgl3;
 
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
-import com.runnymede.game.Main;
+import com.runnymede.game.MainGame;
 
 /** Launches the desktop (LWJGL3) application. */
 public class Lwjgl3Launcher {
     public static void main(String[] args) {
-        if (StartupHelper.startNewJvmIfRequired()) return; // This handles macOS support and helps on Windows.
-        createApplication();
+        if (StartupHelper.startNewJvmIfRequired()) return;
+
+        // Explicitly check and print where Java thinks it is running from
+        System.out.println("Current Directory: " + new java.io.File(".").getAbsolutePath());
+
+        Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
+        config.setTitle("TestingForOneChoice");
+        config.setWindowedMode(640, 480);
+        config.useVsync(true);
+
+        // Change "MainGame" to whatever your core game class is called if different
+        new Lwjgl3Application(new MainGame(), config);
     }
 
     private static Lwjgl3Application createApplication() {
-        return new Lwjgl3Application(new Main(), getDefaultConfiguration());
+        return new Lwjgl3Application(new MainGame(), getDefaultConfiguration());
     }
 
     private static Lwjgl3ApplicationConfiguration getDefaultConfiguration() {

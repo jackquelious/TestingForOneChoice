@@ -16,26 +16,34 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.*;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class MainGame implements ApplicationListener{
-    SpriteBatch spriteBatch;
-    ArrayList<Enemy> enemies;
-    float timer;
-    float deltaTime;
-    Texture enemyTexture;
-    Player player;
+    private static final float enemySpeed = 0.80f;
+    private static final float playerSpeed = 1.2f;
+
+
+    private SpriteBatch spriteBatch;
+    private Viewport viewport;
+
+    private ArrayList<Enemy> enemies;
+    private float timer;
+    private float deltaTime;
+    private Texture enemyTexture;
+    private Player player;
 
     public void create(){
         spriteBatch = new SpriteBatch();
         enemies = new ArrayList<Enemy>();
         timer = 1f;
         enemyTexture = new Texture("enemyTexture.png");
-        player = new Player(2.0f, 2.0f, 0.6f, 3);
-
-
+        player = new Player(4.0f, 2.0f, playerSpeed, 3);
+        viewport = new FitViewport(8, 5);
     }
 
+    @Override
     public void resize(int width, int height) {
+        viewport.update(width, height, true); // The 'true' centers the camera on the world
     }
 
     public void render() {
@@ -57,8 +65,10 @@ public class MainGame implements ApplicationListener{
     }
 
     public void input(float deltaTime){
-
+        doPlayerMovement(deltaTime);
     }
+
+
 
     public void logic(float deltaTime){
         float playerXPos = player.getPlayerX();
@@ -70,11 +80,26 @@ public class MainGame implements ApplicationListener{
 
     }
 
+    public void draw(){
+        viewport.apply();
+        spriteBatch.setProjectionMatrix(viewport.getCamera().combined);
+
+        ScreenUtils.clear(0, 0, 0, 1); // Clears the screen before each frame
+
+        spriteBatch.begin();
+
+        player.draw(spriteBatch);
+        for(Enemy cur : enemies){
+            cur.draw(spriteBatch);
+        }
+        spriteBatch.end();
+    }
+
     public void doEnemyTimer(float dt){
         if(timer > 0){
             timer -= dt;
         } else{
-            Enemy enemy = new Enemy(0f, 0f, 0.2f, 3, 1, enemyTexture);
+            Enemy enemy = new Enemy(0f, 0f, enemySpeed, 3, 1, enemyTexture);
             enemies.add(enemy);
             timer = 1;
         }
@@ -86,7 +111,26 @@ public class MainGame implements ApplicationListener{
         }
     }
 
-    public void draw(){
+    public void doPlayerMovement(float deltaTime){
+        int numOfKeysPressed = 0;
+        player.setSpeedMult(1);
+        if(Gdx.input.isKeyPressed(Input.Keys.W)) numOfKeysPressed += 1;
+        if(Gdx.input.isKeyPressed(Input.Keys.A)) numOfKeysPressed += 1;
+        if(Gdx.input.isKeyPressed(Input.Keys.S)) numOfKeysPressed += 1;
+        if(Gdx.input.isKeyPressed(Input.Keys.D)) numOfKeysPressed += 1;
+
+        if(numOfKeysPressed > 1){
+            player.setSpeedMult(0.7f);
+        }
+
+        if(Gdx.input.isKeyPressed(Input.Keys.W)) player.moveUp(deltaTime);
+        if(Gdx.input.isKeyPressed(Input.Keys.A)) player.moveLeft(deltaTime);
+        if(Gdx.input.isKeyPressed(Input.Keys.S)) player.moveDown(deltaTime);
+        if(Gdx.input.isKeyPressed(Input.Keys.D)) player.moveRight(deltaTime);
+
+
 
     }
+
+
 }

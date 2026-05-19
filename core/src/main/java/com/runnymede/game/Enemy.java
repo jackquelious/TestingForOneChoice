@@ -5,8 +5,6 @@ import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 public class Enemy {
-    private float xPos;
-    private float yPos;
     private float speed;
     private int health;
     private int damage;
@@ -15,23 +13,23 @@ public class Enemy {
     private boolean alive;
 
     public Enemy(float xPos, float yPos, float speed, int health, int damage, Texture texture) {
-        this.xPos = xPos;
-        this.yPos = yPos;
         this.speed = speed;
         this.health = health;
         this.damage = damage;
         this.texture = texture;
         this.sprite = new Sprite(texture);
+        this.sprite.setSize(2.0f, 2.0f);
+        this.sprite.setPosition(xPos, yPos);
         this.alive = true;
 
     }
 
-    public float getxPos() {
-        return xPos;
+    public float getXPos() {
+        return sprite.getX();
     }
 
-    public float getyPos() {
-        return yPos;
+    public float getYPos() {
+        return sprite.getY();
     }
 
     public float getSpeed() {
@@ -62,39 +60,45 @@ public class Enemy {
     }
 
     public void spawn(float xPos, float yPos) {
-        this.xPos = xPos;
-        this.yPos = yPos;
+        sprite.setPosition(xPos, yPos);
         alive = true;
-    }   
+    }
 
     public void setPosition(float xPos, float yPos) {
-        this.xPos = xPos;
-        this.yPos = yPos;
+        setPosition(xPos, yPos);
     }
 
     public void remove() {
         // Implementation for removing the enemy
-        xPos = -100; 
-        yPos = -100;
+        sprite.setPosition(-100f, -100f);
         health = 0; // Ensure health is set to 0 to indicate removal
         alive = false;
     }
 
     public float getAngleToPoint(float targetX, float targetY) {
-        float deltaX = targetX - xPos;
-        float deltaY = targetY - yPos;
+        float deltaX = targetX - getXPos();
+        float deltaY = targetY - getYPos();
         float resultingAngle = (float) Math.atan2(deltaY, deltaX);
         return resultingAngle;
     }
 
     public void moveTowardsPoint(float deltaTime, float targetX, float targetY) {
-        float angle = getAngleToPoint(targetX, targetY);
-        xPos += speed * Math.cos(angle) * deltaTime;
-        yPos += speed * Math.sin(angle) * deltaTime;
+        float angle = getAngleToPoint(targetX, targetY); // Gets angle to point
+
+        // Calculates the movement amount based on sohcahtoa math
+        float xMoveAmount = (float) (speed * Math.cos(angle) * deltaTime);
+        float yMoveAmount = (float) (speed * Math.sin(angle) * deltaTime);
+
+        // Calculates the new positions
+        float newXPos = getXPos() + xMoveAmount;
+        float newYPos = getYPos() + yMoveAmount;
+
+        // Sets the new positions
+        sprite.setPosition(newXPos, newYPos);
+
     }
 
     public void draw(SpriteBatch batch) {
-        sprite.setPosition(xPos, yPos);
         sprite.draw(batch);
     }
 
