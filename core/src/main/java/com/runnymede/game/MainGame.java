@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.audio.Music;
@@ -19,28 +20,40 @@ import com.badlogic.gdx.*;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class MainGame implements ApplicationListener{
-    private static final float enemySpeed = 0.80f;
-    private static final float playerSpeed = 1.2f;
+    private static final float enemySpeed = 1.3f;
+    private static final float playerSpeed = 1.8f;
 
 
     private SpriteBatch spriteBatch;
     private Viewport viewport;
 
+    private ArrayList<Rectangle> walls;
+    private Texture wallTexture;
+
     private ArrayList<Enemy> enemies;
     private float timer;
     private float deltaTime;
-    private Texture enemyTexture;
     private Player player;
 
-    public void create(){
+    public void create() {
         spriteBatch = new SpriteBatch();
         enemies = new ArrayList<Enemy>();
         timer = 1f;
-        enemyTexture = new Texture("enemyTexture.png");
         player = new Player(4.0f, 2.0f, playerSpeed, 3);
         viewport = new FitViewport(8, 5);
-    }
 
+        walls = new ArrayList<Rectangle>();
+        wallTexture = new Texture("wallTexture.jpg");
+
+        // Creates the room boundaries
+        walls.add(new Rectangle(0, 0, 8, 0.5f));
+        walls.add(new Rectangle(0, 4.5f, 8, 0.5f));
+        walls.add(new Rectangle(0, 0, 0.5f, 5));
+        walls.add(new Rectangle(7.5f, 0, 0.5f, 5));
+
+        // The pillar
+        walls.add(new Rectangle(3, 2, 1, 1));
+    }
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true); // The 'true' centers the camera on the world
@@ -75,9 +88,6 @@ public class MainGame implements ApplicationListener{
         float playerYPos = player.getPlayerY();
         doEnemyTimer(deltaTime);
         moveEnemiesTowardPlayer(deltaTime, playerXPos, playerYPos);
-
-
-
     }
 
     public void draw(){
@@ -85,21 +95,20 @@ public class MainGame implements ApplicationListener{
         spriteBatch.setProjectionMatrix(viewport.getCamera().combined);
 
         ScreenUtils.clear(0, 0, 0, 1); // Clears the screen before each frame
+        spriteBatch.begin(); // Starts the sprite batch
 
-        spriteBatch.begin();
+        player.draw(spriteBatch); // draws player
+        drawEnemies(); // draws enemies
+        drawWalls(); // draws walls
 
-        player.draw(spriteBatch);
-        for(Enemy cur : enemies){
-            cur.draw(spriteBatch);
-        }
-        spriteBatch.end();
+        spriteBatch.end(); // ends sprite batch
     }
 
     public void doEnemyTimer(float dt){
         if(timer > 0){
             timer -= dt;
         } else{
-            Enemy enemy = new Enemy(0f, 0f, enemySpeed, 3, 1, enemyTexture);
+            Enemy enemy = new Enemy(0f, 0f, enemySpeed, 3, 1);
             enemies.add(enemy);
             timer = 1;
         }
@@ -112,6 +121,12 @@ public class MainGame implements ApplicationListener{
     }
 
     public void doPlayerMovement(float deltaTime){
+        // Gets the old player cordinates
+        float playerX = player.getPlayerX();
+        float playerY = player.getPlayerY();
+
+
+
         int numOfKeysPressed = 0;
         player.setSpeedMult(1);
         if(Gdx.input.isKeyPressed(Input.Keys.W)) numOfKeysPressed += 1;
@@ -119,18 +134,44 @@ public class MainGame implements ApplicationListener{
         if(Gdx.input.isKeyPressed(Input.Keys.S)) numOfKeysPressed += 1;
         if(Gdx.input.isKeyPressed(Input.Keys.D)) numOfKeysPressed += 1;
 
+        // Slightly reduce speed so going diagonal isn't crazy fast
         if(numOfKeysPressed > 1){
-            player.setSpeedMult(0.7f);
+            player.setSpeedMult(0.85f);
         }
 
-        if(Gdx.input.isKeyPressed(Input.Keys.W)) player.moveUp(deltaTime);
+        // Doing x movement first so you can check for walls
         if(Gdx.input.isKeyPressed(Input.Keys.A)) player.moveLeft(deltaTime);
-        if(Gdx.input.isKeyPressed(Input.Keys.S)) player.moveDown(deltaTime);
         if(Gdx.input.isKeyPressed(Input.Keys.D)) player.moveRight(deltaTime);
 
+        // If after moving you contact a wall reset the position
+        for(Rectangle w : walls) {
+            if (player.getHitBox().overlaps(w)){
+                player.setPosition(playerX, playerY);
+            }
+        }
 
+        // Then doing Y to check for the y-axis walls
+        if(Gdx.input.isKeyPressed(Input.Keys.W)) player.moveUp(deltaTime);
+        if(Gdx.input.isKeyPressed(Input.Keys.S)) player.moveDown(deltaTime);
 
+        for(Rectangle w : walls){
+            if(player.getHitBox().overlaps(w)){
+                player.setPosition(playerX, playerY);
+            }
+        }
+
+        player.setTotalHitBox(player.getPlayerX(), player.getPlayerY());
     }
 
+    public void drawEnemies(){
+        for(Enemy e : enemies){
+            e.draw(spriteBatch);
+        }
+    }
 
+    public void drawWalls(){
+        for(Rectangle w : walls){
+            spriteBatch.draw(wallTexture, w.x, w.y, w.width, w.height);
+        }
+    }
 }

@@ -12,13 +12,14 @@ public class Enemy {
     private Sprite sprite;
     private boolean alive;
 
-    public Enemy(float xPos, float yPos, float speed, int health, int damage, Texture texture) {
+
+    public Enemy(float xPos, float yPos, float speed, int health, int damage) {
         this.speed = speed;
         this.health = health;
         this.damage = damage;
-        this.texture = texture;
+        this.texture = new Texture("enemySquare.png");
         this.sprite = new Sprite(texture);
-        this.sprite.setSize(2.0f, 2.0f);
+        this.sprite.setSize(0.4f, 0.4f);
         this.sprite.setPosition(xPos, yPos);
         this.alive = true;
 
