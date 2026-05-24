@@ -48,22 +48,26 @@ public class Player {
     public void moveLeft(float dt){
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(-changeAmt, 0);
+        totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
 
     }
 
     public void moveRight(float dt){
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(changeAmt, 0);
+        totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
     }
 
     public void moveUp(float dt){
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(0, changeAmt);
+        totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
     }
 
     public void moveDown(float dt){
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(0, -changeAmt);
+        totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
     }
 
     //Sets the position of the hitBox

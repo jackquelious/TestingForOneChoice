@@ -34,6 +34,7 @@ public class MainGame implements ApplicationListener{
     private float timer;
     private float deltaTime;
     private Player player;
+    private GridManager gridManager;
 
     public void create() {
         spriteBatch = new SpriteBatch();
@@ -53,7 +54,11 @@ public class MainGame implements ApplicationListener{
 
         // The pillar
         walls.add(new Rectangle(3, 2, 1, 1));
+
+        //Intiantiates gridManager
+        gridManager = new GridManager(walls);
     }
+
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true); // The 'true' centers the camera on the world
@@ -149,6 +154,8 @@ public class MainGame implements ApplicationListener{
                 player.setPosition(playerX, playerY);
             }
         }
+
+        playerX = player.getPlayerX();
 
         // Then doing Y to check for the y-axis walls
         if(Gdx.input.isKeyPressed(Input.Keys.W)) player.moveUp(deltaTime);
