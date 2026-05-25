@@ -38,7 +38,6 @@ public class MainGame implements ApplicationListener{
     private GridManager gridManager;
     private Pathfinder pathfinder;
 
-    private Texture bulletTexture;
     private ArrayList<Projectile> projectiles;
 
     public void create() {
@@ -64,7 +63,6 @@ public class MainGame implements ApplicationListener{
         gridManager = new GridManager(walls);
         pathfinder  = new Pathfinder(gridManager);
 
-        bulletTexture = new Texture("bullet.png");
         projectiles = new ArrayList<Projectile>();
     }
 
@@ -90,7 +88,6 @@ public class MainGame implements ApplicationListener{
 
     public void dispose() {
         spriteBatch.dispose();
-        bulletTexture.dispose();
     }
 
     public void input(float deltaTime){
@@ -254,7 +251,7 @@ public class MainGame implements ApplicationListener{
             float spawnY = player.getY() + (player.getSprite().getHeight() / 2);
 
             // Creates new bullet object
-            Projectile newBullet = new Projectile(bulletSpeed, spawnX, spawnY, mousePos.x, mousePos.y, bulletTexture);
+            Projectile newBullet = new Projectile(bulletSpeed, spawnX, spawnY, mousePos.x, mousePos.y);
 
             // Adds it to the list
             projectiles.add(newBullet);
