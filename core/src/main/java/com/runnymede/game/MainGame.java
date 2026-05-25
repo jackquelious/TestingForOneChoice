@@ -70,9 +70,10 @@ public class MainGame implements ApplicationListener{
 
     @Override
     public void resize(int width, int height) {
-        viewport.update(width, height, true); // The 'true' centers the camera on the world
+        viewport.update(width, height, true);
     }
 
+    // Main method that runs periodically
     public void render() {
         float deltaTime = Gdx.graphics.getDeltaTime();
         input(deltaTime);
@@ -123,30 +124,40 @@ public class MainGame implements ApplicationListener{
         spriteBatch.end(); // ends sprite batch
     }
 
+    // Counts down an enemy timer with delta time
+    // Spawns an enemy every 5 seconds
     public void doEnemyTimer(float dt){
-        if(timer > 0){
-            timer -= dt;
-        } else{
+        if(timer > 0) timer -= dt;
+        else{
             Enemy enemy = new Enemy(1.0f, 1.0f, enemySpeed, 3, 1);
             enemies.add(enemy);
             timer = 5;
         }
     }
 
+    // This method moves the enemies toward the player
     public void moveEnemiesTowardPlayer(float dt, float playerX, float playerY){
+        // Iterates through every enemy
         for(Enemy e : enemies){
+            // gets the cordinates
             float enemyCenterX = e.getCenterXPos();
             float enemyCenterY = e.getCenterYPos();
+
+            // Checks if there are nearmy obstacles
+            // If there are the enemy will use node based tracking otherwise it just uses direct movement
             if (!e.areWallsNearby(enemyCenterX, enemyCenterY, 0.4f, gridManager)) {
                 // Direct tracking logic
                 e.moveTowardsPoint(dt, playerX, playerY);
+                // Clears the current node path
                 if (e.getCurrentPath() != null) e.getCurrentPath().clear();
                 continue;
             }
+            // Otherwise use the navigation method
             e.navigateTowardsPlayer(dt, playerX, playerY, pathfinder);
         }
     }
 
+    // Updates all projectiles and checks for collision
     public void updateProjectiles(float deltaTime){
         for (int i = projectiles.size() - 1; i >= 0; i--) {
             Projectile currentProjectile = projectiles.get(i);
@@ -167,9 +178,11 @@ public class MainGame implements ApplicationListener{
                         enemies.remove(currentEnemy);
                     }
                     System.out.println("hit");
+                    break; // So it can't hit more than oe enemy at a times
                 }
             }
 
+            // Checks if it hits a wall, if so deeltes the projectile
             for(Rectangle w : walls) {
                 if(currentProjectile.getHitBox().overlaps(w)) {
                     projectiles.remove(currentProjectile);
@@ -185,7 +198,7 @@ public class MainGame implements ApplicationListener{
         float playerY = player.getY();
 
 
-
+        // Gets the number of keys pressed
         int numOfKeysPressed = 0;
         player.setSpeedMult(1);
         if(Gdx.input.isKeyPressed(Input.Keys.W)) numOfKeysPressed += 1;
@@ -194,9 +207,9 @@ public class MainGame implements ApplicationListener{
         if(Gdx.input.isKeyPressed(Input.Keys.D)) numOfKeysPressed += 1;
 
         // Slightly reduce speed so going diagonal isn't crazy fast
-        if(numOfKeysPressed > 1){
-            player.setSpeedMult(0.85f);
-        }
+        if(numOfKeysPressed > 1) player.setSpeedMult(0.85f);
+        else player.setSpeedMult(1.0f);
+
 
         // Doing x movement first so you can check for walls
         if(Gdx.input.isKeyPressed(Input.Keys.A)) player.moveLeft(deltaTime);
@@ -221,6 +234,7 @@ public class MainGame implements ApplicationListener{
             }
         }
 
+        // Updates the hit box at the end
         player.setTotalHitBox(player.getX(), player.getY());
     }
 
@@ -235,16 +249,19 @@ public class MainGame implements ApplicationListener{
             // converts the pixel inputs into game units (8x5)
             viewport.getCamera().unproject(mousePos);
 
-            // 3. Spawn the bullet from the center of the player towards the mouse
-            float spawnX = player.getX() + (player.getSprite().getWidth() / 2);
+            // Spawns the bullet at the middle of the player
+            float spawnX = player.getCenterX();
             float spawnY = player.getY() + (player.getSprite().getHeight() / 2);
 
+            // Creates new bullet object
             Projectile newBullet = new Projectile(bulletSpeed, spawnX, spawnY, mousePos.x, mousePos.y, bulletTexture);
 
+            // Adds it to the list
             projectiles.add(newBullet);
         }
     }
 
+    // DRAW METHODS:
     public void drawEnemies(){
         for(Enemy e : enemies){
             e.draw(spriteBatch);
