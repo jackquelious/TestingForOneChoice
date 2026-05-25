@@ -6,15 +6,21 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 
 public class Player {
-    private Rectangle totalHitBox;
+    // CLASS VARIABLES:
+    private Rectangle totalHitBox; // The hit box centered on the player
+
+    // The player textures and sprite
     private Texture playerTexture;
     private Sprite playerSprite;
+
+    // Control the health, base speed, and speed multiplier
     private int health;
     private float speed;
     private float speedMult;
 
-
+    // Constructor
     public Player(float x, float y, float speed, int health) {
+        // Instantiates and initializes all variables
         playerTexture = new Texture("playerSquare.png");
         playerSprite = new Sprite(playerTexture);
         playerSprite.setSize(0.55f, 0.55f);
@@ -26,6 +32,7 @@ public class Player {
 
     }
 
+    // GETTERS
     public float getX(){
         return playerSprite.getX();
     }
@@ -34,6 +41,8 @@ public class Player {
         return playerSprite.getY();
     }
 
+    // Getting the x of a sprite always gets the bottom left corner
+    // This gets the center cords
     public float getCenterX() {
         return playerSprite.getX() + playerSprite.getWidth() / 2;
     }
@@ -55,7 +64,8 @@ public class Player {
     }
 
     // MOVEMENT METHODS:
-
+    // calculates the change amount with delta time, speed, and speed multiplier
+    // Then moves the player by that amount
     public void moveLeft(float dt){
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(-changeAmt, 0);
@@ -64,6 +74,7 @@ public class Player {
     }
 
     public void moveRight(float dt){
+
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(changeAmt, 0);
         totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());

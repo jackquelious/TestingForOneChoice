@@ -37,6 +37,7 @@ public class Enemy {
         this.alive = true;
     }
 
+    // Getters
     public float getXPos() { return sprite.getX(); }
     public float getYPos() { return sprite.getY(); }
     public float getSpeed() { return speed; }

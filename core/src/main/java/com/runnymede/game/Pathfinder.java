@@ -60,7 +60,7 @@ public class Pathfinder {
                     // sets all the distance variables
                     neighbor.gCost = newCostToNeighbor;
                     neighbor.hCost = getDistance(neighbor, targetNode);
-                    neighbor.parent = currentNode; // tracks which node lead to this node so it can be retraced later
+                    neighbor.parent = currentNode; // tracks wihch node lead to this node so it can be retraced later
 
                     // if the to-do list does not contain it, add it
                     if (!openList.contains(neighbor)) {
@@ -70,7 +70,7 @@ public class Pathfinder {
             }
         }
 
-        // If the loop finishes and we never found the target return an empty path
+        // If the loop finishe and we never found the target return an empty path
         return new ArrayList<>();
     }
 
@@ -82,7 +82,7 @@ public class Pathfinder {
         // Starts by selecting the last node
         Node currentNode = endNode;
 
-        // Traces the path backwards untill it reaches the start
+        // Traces the path backwards untilll it reaches the start
         while (currentNode != startNode) {
             // adds the current node to the list and gets the parent of the current node
             path.add(currentNode);
