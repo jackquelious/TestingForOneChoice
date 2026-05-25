@@ -52,8 +52,8 @@ public class GridManager {
     // (used to know which node a character is on)
     public Node getNodeFromWorldPosition(float worldX, float worldY) {
         // Calculates where the point is on the grid
-        int gridX = Math.round(worldX / tileSize);
-        int gridY = Math.round(worldY / tileSize);
+        int gridX = (int) (worldX / tileSize);
+        int gridY = (int) (worldY / tileSize);
 
         // Safety checks to prevent errors
         if (gridX < 0) gridX = 0;

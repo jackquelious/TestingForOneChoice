@@ -5,24 +5,27 @@ import java.util.HashSet;
 import java.util.List;
 
 public class Pathfinder {
-    private GridManager gridManager;
+    private GridManager gridManager; // Uses a grid manager
 
     public Pathfinder(GridManager gridManager) {
-        this.gridManager = gridManager;
+        this.gridManager = gridManager; //  initializes grid manager
     }
 
+    // IMPORTANT METHOD
+    // returns the list of nodes that leads to the player
     public List<Node> findPath(float startWorldX, float startWorldY, float targetWorldX, float targetWorldY) {
-        // 1. Translate the floating world coordinates into our grid squares
+        // gets the nodes of the start and end points
         Node startNode = gridManager.getNodeFromWorldPosition(startWorldX, startWorldY);
         Node targetNode = gridManager.getNodeFromWorldPosition(targetWorldX, targetWorldY);
 
-        // 2. Create our two notepads
-        List<Node> openList = new ArrayList<>(); // "To-Do" List
-        HashSet<Node> closedSet = new HashSet<>(); // "Done" List (HashSet is super fast for lookups)
+        // Creates two lists that track which nodes need to be explored and which nodes are already explored
+        List<Node> openList = new ArrayList<>(); // tracks the to-be explored nodes
+        HashSet<Node> closedSet = new HashSet<>(); // list of already checked off nodes
 
+        // Starts by adding the start node to the to-do list
         openList.add(startNode);
 
-        // 3. The Explorer's Loop
+        // looks at the to-do list and picks the node with the lowest f-cost (distance to player, and distance from start)
         while (openList.size() > 0) {
             // Find the node in the open list with the lowest F-Cost
             Node currentNode = openList.get(0);
@@ -33,31 +36,33 @@ public class Pathfinder {
                 }
             }
 
-            // Move the current node from To-Do to Done
+            // checks off the selected node from the to-do list
             openList.remove(currentNode);
             closedSet.add(currentNode);
 
-            // Did we find the player?
+            // checks if the selected node is the target
             if (currentNode == targetNode) {
-                return retracePath(startNode, targetNode);
+                return retracePath(startNode, targetNode); // returns the path of nodes that lead to it
             }
 
-            // Check the neighbors!
+            // otherwise it looks for any neighbor nodes that are walkable and not already checked off
             for (Node neighbor : gridManager.getNeighbors(currentNode)) {
-                // If it's a wall or we already checked it, ignore it
                 if (!neighbor.isWalkable || closedSet.contains(neighbor)) {
                     continue;
                 }
 
-                // Calculate the G-Cost (how far it is from the start)
+                // Calculates the G-Cost (how far it is from the start)
                 int newCostToNeighbor = currentNode.gCost + getDistance(currentNode, neighbor);
 
                 // If this is a shorter path, or the neighbor isn't on the To-Do list yet
+                // this will add it to the to-do list
                 if (newCostToNeighbor < neighbor.gCost || !openList.contains(neighbor)) {
+                    // sets all the distance variables
                     neighbor.gCost = newCostToNeighbor;
                     neighbor.hCost = getDistance(neighbor, targetNode);
-                    neighbor.parent = currentNode; // Leave a breadcrumb!
+                    neighbor.parent = currentNode; // tracks which node lead to this node so it can be retraced later
 
+                    // if the to-do list does not contain it, add it
                     if (!openList.contains(neighbor)) {
                         openList.add(neighbor);
                     }
@@ -65,26 +70,33 @@ public class Pathfinder {
             }
         }
 
-        // If the loop finishes and we never found the target, no path exists
+        // If the loop finishes and we never found the target return an empty path
         return new ArrayList<>();
     }
 
-    // Helper Method 1: Follow the breadcrumbs backward
+    // Returns the path to the end node
     private List<Node> retracePath(Node startNode, Node endNode) {
+        // makes the list
         List<Node> path = new ArrayList<>();
+
+        // Starts by selecting the last node
         Node currentNode = endNode;
 
+        // Traces the path backwards untill it reaches the start
         while (currentNode != startNode) {
+            // adds the current node to the list and gets the parent of the current node
             path.add(currentNode);
             currentNode = currentNode.parent;
         }
 
-        // The path is currently backwards (Target to Start), so we reverse it!
+        // Reverses the path so it starts at the start, not the end
         java.util.Collections.reverse(path);
+
+        // returns the path
         return path;
     }
 
-    // Helper Method 2: Calculate grid distance (Manhattan Distance for 4-way movement)
+    // gets the distance to two nodes (the sum of the x and y parts)
     private int getDistance(Node nodeA, Node nodeB) {
         int distanceX = Math.abs(nodeA.gridX - nodeB.gridX);
         int distanceY = Math.abs(nodeA.gridY - nodeB.gridY);

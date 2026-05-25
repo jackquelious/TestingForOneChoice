@@ -26,12 +26,23 @@ public class Player {
 
     }
 
-    public float getPlayerX(){
+    public float getX(){
         return playerSprite.getX();
     }
 
-    public float getPlayerY(){
+    public float getY(){
         return playerSprite.getY();
+    }
+
+    public float getCenterX() {
+        return playerSprite.getX() + playerSprite.getWidth() / 2;
+    }
+    public float getCenterY() {
+        return playerSprite.getY() + playerSprite.getHeight() / 2;
+    }
+
+    public Sprite getSprite(){
+        return playerSprite;
     }
 
 

@@ -22,6 +22,7 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 public class MainGame implements ApplicationListener{
     private static final float enemySpeed = 1.3f;
     private static final float playerSpeed = 1.8f;
+    private static final float bulletSpeed = 3.0f;
 
 
     private SpriteBatch spriteBatch;
@@ -35,6 +36,10 @@ public class MainGame implements ApplicationListener{
     private float deltaTime;
     private Player player;
     private GridManager gridManager;
+    private Pathfinder pathfinder;
+
+    private Texture bulletTexture;
+    private ArrayList<Projectile> projectiles;
 
     public void create() {
         spriteBatch = new SpriteBatch();
@@ -55,8 +60,12 @@ public class MainGame implements ApplicationListener{
         // The pillar
         walls.add(new Rectangle(3, 2, 1, 1));
 
-        //Intiantiates gridManager
+        //Intiantiates gridManager and pathfinder
         gridManager = new GridManager(walls);
+        pathfinder  = new Pathfinder(gridManager);
+
+        bulletTexture = new Texture("bullet.png");
+        projectiles = new ArrayList<Projectile>();
     }
 
     @Override
@@ -80,19 +89,23 @@ public class MainGame implements ApplicationListener{
 
     public void dispose() {
         spriteBatch.dispose();
+        bulletTexture.dispose();
     }
 
     public void input(float deltaTime){
         doPlayerMovement(deltaTime);
+        doProjectileInput();
     }
 
 
 
     public void logic(float deltaTime){
-        float playerXPos = player.getPlayerX();
-        float playerYPos = player.getPlayerY();
+        float playerXPos = player.getCenterX();
+        float playerYPos = player.getCenterY();
+        updateProjectiles(deltaTime);
         doEnemyTimer(deltaTime);
         moveEnemiesTowardPlayer(deltaTime, playerXPos, playerYPos);
+
     }
 
     public void draw(){
@@ -105,6 +118,7 @@ public class MainGame implements ApplicationListener{
         player.draw(spriteBatch); // draws player
         drawEnemies(); // draws enemies
         drawWalls(); // draws walls
+        drawProjectiles(); // draws projectiles
 
         spriteBatch.end(); // ends sprite batch
     }
@@ -113,22 +127,62 @@ public class MainGame implements ApplicationListener{
         if(timer > 0){
             timer -= dt;
         } else{
-            Enemy enemy = new Enemy(0f, 0f, enemySpeed, 3, 1);
+            Enemy enemy = new Enemy(1.0f, 1.0f, enemySpeed, 3, 1);
             enemies.add(enemy);
-            timer = 1;
+            timer = 5;
         }
     }
 
     public void moveEnemiesTowardPlayer(float dt, float playerX, float playerY){
         for(Enemy e : enemies){
-            e.moveTowardsPoint(dt, playerX, playerY);
+            float enemyCenterX = e.getCenterXPos();
+            float enemyCenterY = e.getCenterYPos();
+            if (!e.areWallsNearby(enemyCenterX, enemyCenterY, 0.4f, gridManager)) {
+                // Direct tracking logic
+                e.moveTowardsPoint(dt, playerX, playerY);
+                if (e.getCurrentPath() != null) e.getCurrentPath().clear();
+                continue;
+            }
+            e.navigateTowardsPlayer(dt, playerX, playerY, pathfinder);
+        }
+    }
+
+    public void updateProjectiles(float deltaTime){
+        for (int i = projectiles.size() - 1; i >= 0; i--) {
+            Projectile currentProjectile = projectiles.get(i);
+            Rectangle projectileHitbox = currentProjectile.getHitBox();
+            currentProjectile.update(deltaTime);
+
+            // Checks for enemies and damages them on collision
+            for(int e = enemies.size() - 1; e >= 0; e --){
+                // Gets the enemy and it's hitbox
+                Enemy currentEnemy =  enemies.get(e);
+                Rectangle curEnemyHitbox = currentEnemy.getHitBox();
+
+                // WHen thiey overlap remove projectile and damage the enemy
+                if(curEnemyHitbox.overlaps(projectileHitbox)){
+                    projectiles.remove(currentProjectile);
+                    currentEnemy.takeDamage(2);
+                    if(!currentEnemy.isAlive()){
+                        enemies.remove(currentEnemy);
+                    }
+                    System.out.println("hit");
+                }
+            }
+
+            for(Rectangle w : walls) {
+                if(currentProjectile.getHitBox().overlaps(w)) {
+                    projectiles.remove(currentProjectile);
+                    break;
+                }
+            }
         }
     }
 
     public void doPlayerMovement(float deltaTime){
         // Gets the old player cordinates
-        float playerX = player.getPlayerX();
-        float playerY = player.getPlayerY();
+        float playerX = player.getX();
+        float playerY = player.getY();
 
 
 
@@ -155,7 +209,7 @@ public class MainGame implements ApplicationListener{
             }
         }
 
-        playerX = player.getPlayerX();
+        playerX = player.getX();
 
         // Then doing Y to check for the y-axis walls
         if(Gdx.input.isKeyPressed(Input.Keys.W)) player.moveUp(deltaTime);
@@ -167,7 +221,28 @@ public class MainGame implements ApplicationListener{
             }
         }
 
-        player.setTotalHitBox(player.getPlayerX(), player.getPlayerY());
+        player.setTotalHitBox(player.getX(), player.getY());
+    }
+
+    public void doProjectileInput(){
+        // Triggers on left click
+        if (com.badlogic.gdx.Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
+
+            // gets the x and y positions in a vector container
+            com.badlogic.gdx.math.Vector3 mousePos = new com.badlogic.gdx.math.Vector3(
+                com.badlogic.gdx.Gdx.input.getX(), com.badlogic.gdx.Gdx.input.getY(), 0);
+
+            // converts the pixel inputs into game units (8x5)
+            viewport.getCamera().unproject(mousePos);
+
+            // 3. Spawn the bullet from the center of the player towards the mouse
+            float spawnX = player.getX() + (player.getSprite().getWidth() / 2);
+            float spawnY = player.getY() + (player.getSprite().getHeight() / 2);
+
+            Projectile newBullet = new Projectile(bulletSpeed, spawnX, spawnY, mousePos.x, mousePos.y, bulletTexture);
+
+            projectiles.add(newBullet);
+        }
     }
 
     public void drawEnemies(){
@@ -179,6 +254,12 @@ public class MainGame implements ApplicationListener{
     public void drawWalls(){
         for(Rectangle w : walls){
             spriteBatch.draw(wallTexture, w.x, w.y, w.width, w.height);
+        }
+    }
+
+    public void drawProjectiles(){
+        for(Projectile p : projectiles){
+            p.draw(spriteBatch);
         }
     }
 }
