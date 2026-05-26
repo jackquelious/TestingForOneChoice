@@ -18,12 +18,17 @@ public class Enemy {
     private Rectangle hitBox;
 
     // For pathfinding
-    private List<Node> currentPath;
-    private float pathTimer = 0f;
-    private final float pathRefreshRate = 0.25f; // Recalculates route 4 times a second
-    private final float tileSize = 0.5f;
+    private List<Node> currentPath; // Tracks the calculated path of nodes that lead to the target
 
+    // PATHFINDING CONSTANTS
+    private float pathTimer = 0f; // A timer that triggers a re-calculation of the path
+    private final float pathRefreshRate = 0.25f; // Recalculates route 4 times a second
+    private final float tileSize = 0.5f; // the size of tiles
+
+    // Constructor
+    // Excepts start point, speed, health, and damage arguments
     public Enemy(float xPos, float yPos, float speed, int health, int damage) {
+        // Initializes and instantiates all variables
         this.speed = speed;
         this.health = health;
         this.damage = damage;
@@ -31,10 +36,12 @@ public class Enemy {
         this.texture = new Texture("enemySquare.png");
         this.sprite = new Sprite(texture);
 
+        // Sets up the bullet sprite
         this.sprite.setSize(0.4f, 0.4f);
         this.sprite.setPosition(xPos, yPos);
-        this.hitBox = new Rectangle(xPos, yPos, sprite.getWidth(), sprite.getHeight());
-        this.alive = true;
+
+        this.hitBox = new Rectangle(xPos, yPos, sprite.getWidth(), sprite.getHeight()); // Creates the hitbox
+        this.alive = true; // Starts alive
     }
 
     // Getters
@@ -48,22 +55,7 @@ public class Enemy {
     public boolean isAlive() { return alive; }
     public Rectangle getHitBox() { return hitBox; }
 
-    public void takeDamage(int damage) {
-        health -= damage;
-        if (health <= 0) {
-            remove();
-        }
-    }
-
-    public void spawn(float xPos, float yPos) {
-        sprite.setPosition(xPos, yPos);
-        alive = true;
-    }
-
-    public void setHitBoxPos(float xPos, float yPos) {
-        hitBox.setPosition(xPos, yPos);
-    }
-
+    // Gets the center cordinates of the enemy
     public float getCenterXPos() {
         return  sprite.getX() + (sprite.getWidth() / 2);
     }
@@ -71,6 +63,29 @@ public class Enemy {
     public float getCenterYPos() {
         return  sprite.getY() + (sprite.getHeight() / 2);
     }
+
+    // Method that makes the enemy take damage
+    // it takes a damage argument that controls how much damage the enemy should take
+    public void takeDamage(int damage) {
+        health -= damage; // Removes health
+        if (health <= 0) {
+            remove(); // Destroys the enemy if the health is reduced below 0
+        }
+    }
+
+    // A spawn method if I want to later implement respawning enemies
+    public void spawn(float xPos, float yPos) {
+        // Sets the position and makes it alive again
+        sprite.setPosition(xPos, yPos);
+        alive = true;
+    }
+
+    // Changes the position of the hitBox
+    public void setHitBoxPos(float xPos, float yPos) {
+        hitBox.setPosition(xPos, yPos);
+    }
+
+
 
     public List<Node> getCurrentPath() { return currentPath; }
 
@@ -80,6 +95,7 @@ public class Enemy {
         alive = false;
     }
 
+    // Gets the angle from the enemy to the point
     public float getAngleToPoint(float targetX, float targetY) {
         float centerX = getCenterXPos();
         float centerY = getCenterYPos();
@@ -89,17 +105,18 @@ public class Enemy {
         return (float) Math.atan2(deltaY, deltaX);
     }
 
+    // A method that can be periodically run to move the enemy to a point
     public void moveTowardsPoint(float deltaTime, float targetX, float targetY) {
+        // Gets the angle to the target
         float angle = getAngleToPoint(targetX, targetY);
 
+        // Gets the amount the enemy should move with trig
         float xMoveAmount = (float) (speed * Math.cos(angle) * deltaTime);
         float yMoveAmount = (float) (speed * Math.sin(angle) * deltaTime);
 
-        float newXPos = getXPos() + xMoveAmount;
-        float newYPos = getYPos() + yMoveAmount;
-
-        sprite.setPosition(newXPos, newYPos);
-        setHitBoxPos(newXPos, newYPos);
+        // Moves the sprite and updates the hit box
+        sprite.translate(xMoveAmount, yMoveAmount);
+        setHitBoxPos(sprite.getX(), sprite.getY());
     }
 
     // calculate the route to the player and moves through it
@@ -114,6 +131,7 @@ public class Enemy {
             float centerX = getCenterXPos();
             float centerY = getCenterYPos();
 
+            // Sets the current path
             currentPath = pathfinder.findPath(centerX, centerY, targetX, targetY);
             pathTimer = pathRefreshRate; // Reset timer
         }
@@ -136,56 +154,56 @@ public class Enemy {
             float deltaY = nodeTargetY - centerY;
             float distanceToNode = (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-            // if the node is within 0.25 units of the enemy check it off the list
-            if (distanceToNode < 0.25f) {
+            // if the node is within 0.15 units of the enemy check it off the list
+            if (distanceToNode < 0.15f) {
                 currentPath.remove(0);
             } else {
-                // Otherwise, walk straight toward that specific node
+                // Otherwise, walk straight toward the node
                 moveTowardsPoint(deltaTime, nodeTargetX, nodeTargetY);
             }
         } else {
-            // Fallback: If no path exists (or we reached the end), just walk straight at the player
+            // If no path exists just walk toward the player
             moveTowardsPoint(deltaTime, targetX, targetY);
         }
     }
 
-    public void draw(SpriteBatch batch) {
-        sprite.draw(batch);
-    }
-
+    // This method checks if there are enemies nearby
     public boolean areWallsNearby(float centerX, float centerY, float radius, GridManager gridManager) {
-        float tileSize = 0.5f; // Matching your GridManager's tileSize
+        // Creates a hit box around the enemy
 
-        // 1. Create a bounding box centered on the enemy, expanded by the radius
+        // Calculates the lower left position of the hit Box
         float checkX = centerX - radius;
         float checkY = centerY - radius;
-        float checkSize = radius * 2;
-        Rectangle checkArea = new Rectangle(checkX, checkY, checkSize, checkSize);
 
-        // 2. Retrieve the 2D node array from your GridManager
+        // The size should be double the radius
+        float checkSize = radius * 2;
+        Rectangle checkArea = new Rectangle(checkX, checkY, checkSize, checkSize); // Creats the rectangle
+
+        // Gets the node grid from grid manager
         Node[][] grid = gridManager.getGrid();
         int gridColumns = grid.length;
         int gridRows = grid[0].length;
 
-        // 3. Convert world coordinates to grid bounds so we only check relevant tiles
+        // converts the world cordinates to grid format
         int startX = Math.max(0, (int) (checkX / tileSize));
         int startY = Math.max(0, (int) (checkY / tileSize));
         int endX = Math.min(gridColumns - 1, (int) ((checkX + checkSize) / tileSize));
         int endY = Math.min(gridRows - 1, (int) ((checkY + checkSize) / tileSize));
 
-        // 4. Create a temporary rectangle for wall testing
+        // Creates a temporary Rectangle
         Rectangle wallBox = new Rectangle(0, 0, tileSize, tileSize);
 
-        // 5. Scan ONLY the tiles inside our checkArea
+        // Checks the nodes inside range
         for (int x = startX; x <= endX; x++) {
             for (int y = startY; y <= endY; y++) {
 
-                // If the node is NOT walkable, it is a wall!
+                // checks whether the node is walkable (is it a wall)
                 if (!grid[x][y].isWalkable) {
-                    // Position our temporary wall box at this tile's world position
+                    // Changes the position of the temp rectangle
                     wallBox.setPosition(x * tileSize, y * tileSize);
 
-                    // If our expanded enemy box hits this wall tile, a wall is nearby!
+                    // If the temp box overlaps the nearby wall node, it will return true
+                    // there are walls nearb y
                     if (checkArea.overlaps(wallBox)) {
                         return true;
                     }
@@ -193,6 +211,11 @@ public class Enemy {
             }
         }
 
-        return false; // Coast is clear!
+        return false; // If it doesn't detect anything there are no walls nearby
+    }
+
+    // Draw method
+    public void draw(SpriteBatch batch) {
+        sprite.draw(batch);
     }
 }
