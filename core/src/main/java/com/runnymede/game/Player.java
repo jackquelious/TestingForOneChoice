@@ -5,7 +5,20 @@ import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 
+
 public class Player {
+    //  CONSTANTS (default values):
+    private final float PLAYER_SIZE = 0.55f;
+    private final int DAMAGE = 1;
+    private final float BULLET_SIZE = 0.2f;
+    private final float BULLET_SPEED = 5.0f;
+    private final float CRIT_CHANCE = 0.0f;
+    private final float LIFE_STEAL = 0.0f;
+    private final int BULLET_BOUNCES = 1;
+    private final int PIERCE = 1;
+
+
+
     // CLASS VARIABLES:
     private Rectangle totalHitBox; // The hit box centered on the player
 
@@ -13,55 +26,70 @@ public class Player {
     private Texture playerTexture;
     private Sprite playerSprite;
 
-    // Control the health, base speed, and speed multiplier
+    // Variable stats
+    private int maxHealth;
     private int health;
     private float speed;
-    private float speedMult;
+    private int damage; // damage done by each bullet
+    private float bulletSize;
+    private float bulletSpeed;
+    private float critChance;
+    private float lifeSteal; // Heals the player by a percent of damage
+    private int bulletBounces; // Number of times the bullet can bounce off of
+    private int pierce; // Number of enemies the bullet can hit without despawning
+
+    private float speedMult; // used to change speeds depending on player state
+
 
     // Constructor
-    public Player(float x, float y, float speed, int health) {
+    public Player(float x, float y, float speed, int maxHealth) {
         // Instantiates and initializes all variables
         playerTexture = new Texture("playerSquare.png");
         playerSprite = new Sprite(playerTexture);
-        playerSprite.setSize(0.55f, 0.55f);
+        playerSprite.setSize(PLAYER_SIZE, PLAYER_SIZE);
         playerSprite.setPosition(x, y);
-        totalHitBox = new Rectangle(x, y, 0.55f, 0.55f);
-        this.health = health;
+
+        totalHitBox = new Rectangle(x, y, PLAYER_SIZE, PLAYER_SIZE);
+
+        this.health = maxHealth;
+        this.maxHealth = maxHealth;
         this.speed = speed;
-        speedMult = 1f;
+
+        // default values
+        this.damage = 1;
+        this.bulletSize = 0.2f;
+        this.bulletSpeed = 5.0f;
+        this.critChance = 0.0f;
+        this.lifeSteal = 0.0f;
+        this.bulletBounces = 1;
+        this.pierce = 1;
+
+        speedMult = 1f; // default state has no speed mult
 
     }
 
     // GETTERS
-    public float getX(){
-        return playerSprite.getX();
-    }
+    public float getX(){return playerSprite.getX();}
+    public float getY(){return playerSprite.getY();}
 
-    public float getY(){
-        return playerSprite.getY();
-    }
+    // These gets the center cords instead of bottom left corner
+    public float getCenterX() {return playerSprite.getX() + playerSprite.getWidth() / 2;}
+    public float getCenterY() {return playerSprite.getY() + playerSprite.getHeight() / 2;}
 
-    // Getting the x of a sprite always gets the bottom left corner
-    // This gets the center cords
-    public float getCenterX() {
-        return playerSprite.getX() + playerSprite.getWidth() / 2;
-    }
-    public float getCenterY() {
-        return playerSprite.getY() + playerSprite.getHeight() / 2;
-    }
+    public Sprite getSprite(){return playerSprite;} // returns sprite
+    public int getDamage(){return damage;}
+    public float getBulletSize(){return bulletSize;}
+    public float getBulletSpeed(){return bulletSpeed;}
+    public float getCritChance(){return critChance;}
+    public float getLifeSteal(){return lifeSteal;}
+    public int getHealth(){return health;}
+    public int getMaxHealth(){return maxHealth;}
+    public int getBulletBounces(){return bulletBounces;}
+    public int getPierce(){return pierce;}
 
-    public Sprite getSprite(){
-        return playerSprite;
-    }
-
-
-    public void setPosition(float x, float y){
-        playerSprite.setPosition(x, y);
-    }
-
-    public void setSpeedMult(float newMult){
-        speedMult = newMult;
-    }
+    // Setters
+    public void setPosition(float x, float y){playerSprite.setPosition(x, y);}
+    public void setSpeedMult(float newMult){speedMult = newMult;}
 
     // MOVEMENT METHODS:
     // calculates the change amount with delta time, speed, and speed multiplier
