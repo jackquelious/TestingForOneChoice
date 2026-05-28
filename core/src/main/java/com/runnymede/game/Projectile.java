@@ -23,33 +23,45 @@ public class Projectile {
 
     // constructor
     // Takes a start point, target point
-    public Projectile(float speed, float startingX, float startingY, float targetX, float targetY) {
+    public Projectile(float speed, float centerX, float centerY, float targetX, float targetY) {
+        // Gets the angle to the target to be used in the update method
+        this.angle = getAngleToTarget(centerX, centerY, targetX, targetY);
+
+        // Calculates the starting pos (bottom left)
+        float spawnX = centerX - (bulletSize / 2.0f);
+        float spawnY = centerY - (bulletSize / 2.0f);
+
         // Initializes all variables
         this.speed = speed;
 
         this.texture = new Texture("bullet.png");
+
+        // Makes a sprite and configures it
         this.sprite = new Sprite(texture);
         sprite.setSize(bulletSize, bulletSize);
-        sprite.setPosition(startingX, startingY);
+        sprite.setPosition(spawnX, spawnY);
 
-        hitBox = new Rectangle(startingX, startingY, sprite.getWidth(), sprite.getHeight());
-        this.active = true;
+        // Makes a hitBox for it
+        hitBox = new Rectangle(spawnX, spawnY, sprite.getWidth(), sprite.getHeight());
+        this.active = true; // Has a boolean for active or not
 
-        // Gets the angle to the target to be used in the update method
-        this.angle = getAngleToTarget(targetX, targetY);
+
     }
 
-    public Rectangle getHitBox(){
-        return hitBox;
-    } // gets the hitbox to do collisions
+    // GETTERS:
+    public Rectangle getHitBox(){return hitBox;}
+
+    public float getX(){return sprite.getX();}
+    public float getY(){return sprite.getY();}
+
+    public float getCenterX(){return sprite.getX() +(sprite.getWidth() / 2.0f);}
+    public float getCenterY(){return sprite.getY() +(sprite.getHeight() / 2.0f);}
 
     // helper method that returns the angle between the sprite and the target cordinates
-    public float getAngleToTarget(float targetX, float targetY) {
+    public float getAngleToTarget(float startX, float startY, float targetX, float targetY) {
         // Gets the reletive position of the target and uses basic trig to get angles
-        float x = sprite.getX();
-        float y = sprite.getY();
-        float deltaX = targetX - x;
-        float deltaY = targetY - y;
+        float deltaX = targetX - startX;
+        float deltaY = targetY - startY;
 
         float angle = (float) Math.atan2(deltaY, deltaX);
         return angle;

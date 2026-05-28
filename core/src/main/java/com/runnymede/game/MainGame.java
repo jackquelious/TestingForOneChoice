@@ -254,11 +254,11 @@ public class MainGame implements ApplicationListener{
                 com.badlogic.gdx.Gdx.input.getX(), com.badlogic.gdx.Gdx.input.getY(), 0);
 
             // converts the pixel inputs into game units (8x5)
-            viewport.getCamera().unproject(mousePos);
+            viewport.unproject(mousePos);
 
             // Spawns the bullet at the middle of the player
             float spawnX = player.getCenterX();
-            float spawnY = player.getY() + (player.getSprite().getHeight() / 2);
+            float spawnY = player.getCenterY();
 
             // Creates new bullet object
             Projectile newBullet = new Projectile(bulletSpeed, spawnX, spawnY, mousePos.x, mousePos.y);
@@ -271,7 +271,7 @@ public class MainGame implements ApplicationListener{
     // On enemy death an upgrade has a chance to be spawned
     public void rollUpgradeSpawn(float spawnX, float spawnY){
         Random rand = new Random();
-        if(rand.nextDouble() < 1){ /// UPDATE SPAWN CHANCE
+        if(rand.nextDouble() < 0.2){
             Upgrade newUpgrade = new Upgrade(spawnX, spawnY, 5f);
             upgrades.add(newUpgrade);
         }
