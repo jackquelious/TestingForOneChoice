@@ -70,8 +70,6 @@ public class Projectile {
 
 
     // draw method
-    public void draw(SpriteBatch batch) {
-        sprite.draw(batch);
-    }
+    public void draw(SpriteBatch batch) {sprite.draw(batch);}
 
 }

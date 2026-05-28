@@ -39,11 +39,12 @@ public class MainGame implements ApplicationListener{
     private Pathfinder pathfinder;
 
     private ArrayList<Projectile> projectiles;
+    private ArrayList<Upgrade> upgrades;
 
     public void create() {
         spriteBatch = new SpriteBatch();
         enemies = new ArrayList<Enemy>();
-        timer = 1f;
+        timer = 0.1f;
         player = new Player(4.0f, 2.0f, playerSpeed, 3);
         viewport = new FitViewport(8, 5);
 
@@ -64,6 +65,7 @@ public class MainGame implements ApplicationListener{
         pathfinder  = new Pathfinder(gridManager);
 
         projectiles = new ArrayList<Projectile>();
+        upgrades = new ArrayList<Upgrade>();
     }
 
     @Override
@@ -103,6 +105,7 @@ public class MainGame implements ApplicationListener{
         updateProjectiles(deltaTime);
         doEnemyTimer(deltaTime);
         moveEnemiesTowardPlayer(deltaTime, playerXPos, playerYPos);
+        doUpgrade(deltaTime);
 
     }
 
@@ -117,6 +120,7 @@ public class MainGame implements ApplicationListener{
         drawEnemies(); // draws enemies
         drawWalls(); // draws walls
         drawProjectiles(); // draws projectiles
+        drawUpgrades(); // draws upgrades
 
         spriteBatch.end(); // ends sprite batch
     }
@@ -128,7 +132,7 @@ public class MainGame implements ApplicationListener{
         else{
             Enemy enemy = new Enemy(1.0f, 1.0f, enemySpeed, 3, 1);
             enemies.add(enemy);
-            timer = 5;
+            timer = 0.1f;
         }
     }
 
@@ -140,7 +144,7 @@ public class MainGame implements ApplicationListener{
             float enemyCenterX = e.getCenterXPos();
             float enemyCenterY = e.getCenterYPos();
 
-            // Checks if there are nearmy obstacles
+            // Checks if there are nearby obstacles
             // If there are the enemy will use node based tracking otherwise it just uses direct movement
             if (!e.areWallsNearby(enemyCenterX, enemyCenterY, 0.4f, gridManager)) {
                 // Direct tracking logic
@@ -167,12 +171,18 @@ public class MainGame implements ApplicationListener{
                 Enemy currentEnemy =  enemies.get(e);
                 Rectangle curEnemyHitbox = currentEnemy.getHitBox();
 
-                // WHen thiey overlap remove projectile and damage the enemy
+                // WHen thiey overlap remove projectile and damage the enemy then roll chance for upgrade to spawn
                 if(curEnemyHitbox.overlaps(projectileHitbox)){
-                    projectiles.remove(currentProjectile);
-                    currentEnemy.takeDamage(2);
+                    // Gets the position of the enemy that is used for the upgrade later
+                    float deathX = currentEnemy.getCenterXPos();
+                    float deathY = currentEnemy.getCenterYPos();
+
+                    projectiles.remove(currentProjectile); // Removes the projectile from the list of projectiles
+                    currentEnemy.takeDamage(player.getDamage()); // Makes enemy take damage
+
                     if(!currentEnemy.isAlive()){
                         enemies.remove(currentEnemy);
+                        rollUpgradeSpawn(deathX, deathY);
                     }
                     System.out.println("hit");
                     break; // So it can't hit more than oe enemy at a times
@@ -258,6 +268,30 @@ public class MainGame implements ApplicationListener{
         }
     }
 
+    // On enemy death an upgrade has a chance to be spawned
+    public void rollUpgradeSpawn(float spawnX, float spawnY){
+        Random rand = new Random();
+        if(rand.nextDouble() < 1){ /// UPDATE SPAWN CHANCE
+            Upgrade newUpgrade = new Upgrade(spawnX, spawnY, 5f);
+            upgrades.add(newUpgrade);
+        }
+
+    }
+
+    public void doUpgrade(float deltaTime){
+        for(int i = upgrades.size() - 1; i >= 0; i--){
+            Upgrade u = upgrades.get(i);
+            if(u.tick(deltaTime)){
+                upgrades.remove(u);
+                return;
+            }
+            if(player.getHitBox().overlaps(u.getHitBox())){
+                u.collect(player);
+                upgrades.remove(u);
+            }
+        }
+    }
+
     // DRAW METHODS:
     public void drawEnemies(){
         for(Enemy e : enemies){
@@ -274,6 +308,12 @@ public class MainGame implements ApplicationListener{
     public void drawProjectiles(){
         for(Projectile p : projectiles){
             p.draw(spriteBatch);
+        }
+    }
+
+    public void drawUpgrades(){
+        for(Upgrade up : upgrades){
+            up.draw(spriteBatch);
         }
     }
 }

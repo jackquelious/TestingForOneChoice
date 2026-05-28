@@ -76,8 +76,9 @@ public class Player {
     public float getCenterX() {return playerSprite.getX() + playerSprite.getWidth() / 2;}
     public float getCenterY() {return playerSprite.getY() + playerSprite.getHeight() / 2;}
 
-    public Sprite getSprite(){return playerSprite;} // returns sprite
-    public int getDamage(){return damage;}
+    public Sprite getSprite(){return playerSprite;}
+    public Rectangle getHitBox(){return totalHitBox;}
+    public float getSpeed(){return speed;}
     public float getBulletSize(){return bulletSize;}
     public float getBulletSpeed(){return bulletSpeed;}
     public float getCritChance(){return critChance;}
@@ -86,10 +87,22 @@ public class Player {
     public int getMaxHealth(){return maxHealth;}
     public int getBulletBounces(){return bulletBounces;}
     public int getPierce(){return pierce;}
+    public int getDamage(){return damage;}
 
     // Setters
     public void setPosition(float x, float y){playerSprite.setPosition(x, y);}
+    public void setTotalHitBox(float x, float y){totalHitBox.setPosition(x, y);}
     public void setSpeedMult(float newMult){speedMult = newMult;}
+    public void setSpeed(float newSpeed){speed = newSpeed;}
+    public void setBulletSize(float newSize){bulletSize = newSize;}
+    public void setBulletSpeed(float newBSpeed){bulletSpeed = newBSpeed;}
+    public void setCritChance(float newCritChance){critChance = newCritChance;}
+    public void setLifeSteal(float newLS){lifeSteal = newLS;}
+    public void setHealth(int newHealth){health = newHealth;}
+    public void setMaxHealth(int newMaxHealth){maxHealth = newMaxHealth;}
+    public void setBulletBounces(int newBB){bulletBounces = newBB;}
+    public void setPierce(int newPierce){pierce = newPierce;}
+    public void setDamage(int newdmg){damage = newdmg;}
 
     // MOVEMENT METHODS:
     // calculates the change amount with delta time, speed, and speed multiplier
@@ -120,15 +133,8 @@ public class Player {
         totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
     }
 
-    //Sets the position of the hitBox
-    public void setTotalHitBox(float x, float y){
-        totalHitBox.setPosition(x, y);
-    }
 
-    //Returns the hitBox, to do collision
-    public Rectangle getHitBox(){
-         return totalHitBox;
-    }
+
 
     public void draw(SpriteBatch spriteBatch){
         playerSprite.draw(spriteBatch);
