@@ -5,18 +5,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class GridManager {
-    // class variable
-    // This is the grid of nodes on the map
-    private Node[][] grid;
+    // CLASS VARIABLES:
 
-    // Constants
-    // Since each node is 0.5 x 0.5, and the window is 8 x 5 the nodes will be 16 x 10
-    private int gridColumns = 16;
-    private int gridRows = 10;
-    private float tileSize = 0.5f;
+    private Node[][] grid; // This is the grid of nodes on the map
+
+    // Variables for the number of grids and rows in the world
+    private int gridColumns;
+    private int gridRows;
+
+    // CONSTANTS:
+    private float tileSize = 0.5f; // Size of nodes/tiles
 
     // Constructor
-    public GridManager(ArrayList<Rectangle> walls) {
+    public GridManager(ArrayList<Rectangle> walls, float worldWidth, float worldHeight) {
+        this.gridColumns = Math.round(worldWidth / tileSize);
+        this.gridRows = Math.round(worldHeight / tileSize);
         // initializes the gird and builds it
         grid = new Node[gridColumns][gridRows];
         buildGrid(walls);
@@ -79,11 +82,8 @@ public class GridManager {
         return neighbors;
     }
 
-    public Node getNode(int x, int y) {
-        return grid[x][y];
-    }
-
-    public Node[][] getGrid(){
-        return grid;
-    }
+    public Node getNode(int x, int y) {return grid[x][y];}
+    public Node[][] getGrid(){return grid;}
+    public int getGridColumns() { return gridColumns;}
+    public int getGridRows() { return gridRows;}
 }

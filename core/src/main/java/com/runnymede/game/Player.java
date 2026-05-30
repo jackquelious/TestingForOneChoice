@@ -56,13 +56,13 @@ public class Player {
         this.speed = speed;
 
         // default values
-        this.damage = 1;
-        this.bulletSize = 0.2f;
-        this.bulletSpeed = 5.0f;
-        this.critChance = 0.0f;
-        this.lifeSteal = 0.0f;
-        this.bulletBounces = 1;
-        this.pierce = 1;
+        this.damage = DAMAGE;
+        this.bulletSize = BULLET_SIZE;
+        this.bulletSpeed = BULLET_SPEED;
+        this.critChance = CRIT_CHANCE;
+        this.lifeSteal = LIFE_STEAL;
+        this.bulletBounces = BULLET_BOUNCES;
+        this.pierce = PIERCE;
 
         speedMult = 1f; // default state has no speed mult
 
@@ -103,6 +103,11 @@ public class Player {
     public void setBulletBounces(int newBB){bulletBounces = newBB;}
     public void setPierce(int newPierce){pierce = newPierce;}
     public void setDamage(int newdmg){damage = newdmg;}
+
+    public void heal(float healAmt){
+        if((health + healAmt) <= maxHealth) health += healAmt;
+        else health = maxHealth;
+    }
 
     // MOVEMENT METHODS:
     // calculates the change amount with delta time, speed, and speed multiplier

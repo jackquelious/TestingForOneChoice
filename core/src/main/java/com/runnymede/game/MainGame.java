@@ -20,9 +20,12 @@ import com.badlogic.gdx.*;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class MainGame implements ApplicationListener{
+    // CONSTANTS:
+    private static final float critMultiplier = 2.5f;
     private static final float enemySpeed = 1.3f;
     private static final float playerSpeed = 1.8f;
     private static final float bulletSpeed = 3.0f;
+    private static final float worldSize = 20.0f;
 
 
     private SpriteBatch spriteBatch;
@@ -45,23 +48,25 @@ public class MainGame implements ApplicationListener{
         spriteBatch = new SpriteBatch();
         enemies = new ArrayList<Enemy>();
         timer = 0.1f;
-        player = new Player(4.0f, 2.0f, playerSpeed, 3);
+        player = new Player(10.0f, 10.0f, playerSpeed, 3);
         viewport = new FitViewport(8, 5);
 
         walls = new ArrayList<Rectangle>();
         wallTexture = new Texture("wallTexture.jpg");
 
         // Creates the room boundaries
-        walls.add(new Rectangle(0, 0, 8, 0.5f));
-        walls.add(new Rectangle(0, 4.5f, 8, 0.5f));
-        walls.add(new Rectangle(0, 0, 0.5f, 5));
-        walls.add(new Rectangle(7.5f, 0, 0.5f, 5));
+        walls.add(new Rectangle(0, 0, 20, 0.5f));       // Bottom Wall
+        walls.add(new Rectangle(0, 19.5f, 20, 0.5f));   // Top Wall
+        walls.add(new Rectangle(0, 0, 0.5f, 20));       // Left Wall
+        walls.add(new Rectangle(19.5f, 0, 0.5f, 20));   // Right Wall
 
-        // The pillar
+        // The pillars
         walls.add(new Rectangle(3, 2, 1, 1));
+        walls.add(new Rectangle(15, 3, 1, 1));
+        walls.add(new Rectangle(17, 12, 1, 1));
 
         //Intiantiates gridManager and pathfinder
-        gridManager = new GridManager(walls);
+        gridManager = new GridManager(walls, worldSize, worldSize);
         pathfinder  = new Pathfinder(gridManager);
 
         projectiles = new ArrayList<Projectile>();
@@ -106,6 +111,7 @@ public class MainGame implements ApplicationListener{
         doEnemyTimer(deltaTime);
         moveEnemiesTowardPlayer(deltaTime, playerXPos, playerYPos);
         doUpgrade(deltaTime);
+        updateCamera();
 
     }
 
@@ -132,7 +138,7 @@ public class MainGame implements ApplicationListener{
         else{
             Enemy enemy = new Enemy(1.0f, 1.0f, enemySpeed, 3, 1);
             enemies.add(enemy);
-            timer = 0.1f;
+            timer = 0.5f;
         }
     }
 
@@ -160,44 +166,56 @@ public class MainGame implements ApplicationListener{
 
     // Updates all projectiles and checks for collision
     public void updateProjectiles(float deltaTime){
+        Random rand = new Random(); // Creates new Random object
+
+        // Iterates through every projectile
         for (int i = projectiles.size() - 1; i >= 0; i--) {
+            // Gets the projectile and it's hitbox
             Projectile currentProjectile = projectiles.get(i);
             Rectangle projectileHitbox = currentProjectile.getHitBox();
-            currentProjectile.update(deltaTime);
 
-            // Checks for enemies and damages them on collision
-            for(int e = enemies.size() - 1; e >= 0; e --){
-                // Gets the enemy and it's hitbox
-                Enemy currentEnemy =  enemies.get(e);
-                Rectangle curEnemyHitbox = currentEnemy.getHitBox();
+            // Moves projectiles, then checks for collisions and updates accordingly
+            currentProjectile.update(deltaTime, walls); // Moves projectiles and handles wall collision
 
-                // WHen thiey overlap remove projectile and damage the enemy then roll chance for upgrade to spawn
-                if(curEnemyHitbox.overlaps(projectileHitbox)){
-                    // Gets the position of the enemy that is used for the upgrade later
-                    float deathX = currentEnemy.getCenterXPos();
-                    float deathY = currentEnemy.getCenterYPos();
+            // Iterates through every enemy to check for collisions
+            for (int j = enemies.size() - 1; j >= 0; j--) {
+                Enemy currentEnemy = enemies.get(j);
+                Rectangle curEnemyHitBox = currentEnemy.getHitBox();
 
-                    projectiles.remove(currentProjectile); // Removes the projectile from the list of projectiles
-                    currentEnemy.takeDamage(player.getDamage()); // Makes enemy take damage
+                // Gets the position of the enemy that is used for upgrade spawning
+                float deathX = currentEnemy.getCenterXPos();
+                float deathY = currentEnemy.getCenterYPos();
 
-                    if(!currentEnemy.isAlive()){
-                        enemies.remove(currentEnemy);
-                        rollUpgradeSpawn(deathX, deathY);
+                // Checks collision
+                if(projectileHitbox.overlaps(curEnemyHitBox)){
+                    boolean isCrit = (rand.nextDouble() <= currentProjectile.getCritChance()); // Rolls for a crit
+                    float damage = currentProjectile.getDamage() * (isCrit ? critMultiplier : 1.0f); // Gets the damage delt
+                    currentEnemy.takeDamage(damage); // makes the enemy take damage
+                    float amtHealed = damage * currentProjectile.getLifeSteal(); // calcs the amt healed
+
+                    currentProjectile.setPierce(currentProjectile.getPierce() - 1); // subtracts pierce
+
+                    // If the pierce reaches 0, despawn the projectile
+                    if(currentProjectile.getPierce() <= 0){
+                        System.out.println("No Pierce");
+                        currentProjectile.setActive(false);
+                        currentProjectile.setPosition(-55, 55);
                     }
-                    System.out.println("hit");
-                    break; // So it can't hit more than oe enemy at a times
                 }
-            }
 
-            // Checks if it hits a wall, if so deeltes the projectile
-            for(Rectangle w : walls) {
-                if(currentProjectile.getHitBox().overlaps(w)) {
+                if (!currentEnemy.isAlive()) {
+                    enemies.remove(currentEnemy);
+                    rollUpgradeSpawn(deathX, deathY);
+                }
+                if (!currentProjectile.getActive()) {
                     projectiles.remove(currentProjectile);
+                    System.out.println("REMOVED DUE TO UNACTIVE");
                     break;
                 }
             }
         }
     }
+
 
     public void doPlayerMovement(float deltaTime){
         // Gets the old player cordinates
@@ -261,7 +279,9 @@ public class MainGame implements ApplicationListener{
             float spawnY = player.getCenterY();
 
             // Creates new bullet object
-            Projectile newBullet = new Projectile(bulletSpeed, spawnX, spawnY, mousePos.x, mousePos.y);
+            Projectile newBullet = new Projectile(player.getBulletSpeed(), player.getBulletSize(),
+                player.getCritChance(), player.getLifeSteal(), player.getDamage(), player.getPierce(),
+                player.getBulletBounces(),spawnX, spawnY, mousePos.x, mousePos.y);
 
             // Adds it to the list
             projectiles.add(newBullet);
@@ -271,7 +291,7 @@ public class MainGame implements ApplicationListener{
     // On enemy death an upgrade has a chance to be spawned
     public void rollUpgradeSpawn(float spawnX, float spawnY){
         Random rand = new Random();
-        if(rand.nextDouble() < 0.2){
+        if(rand.nextDouble() <= 1){
             Upgrade newUpgrade = new Upgrade(spawnX, spawnY, 5f);
             upgrades.add(newUpgrade);
         }
@@ -290,6 +310,13 @@ public class MainGame implements ApplicationListener{
                 upgrades.remove(u);
             }
         }
+    }
+
+    // Updates the camera so it follows the player
+    public void updateCamera(){
+        com.badlogic.gdx.graphics.Camera cam = viewport.getCamera(); // Gets camera object
+        cam.position.set(player.getCenterX(), player.getCenterY(), 0); // Moves the camera
+        cam.update(); // Updates cam math and logic
     }
 
     // DRAW METHODS:

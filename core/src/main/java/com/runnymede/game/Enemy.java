@@ -10,8 +10,8 @@ import java.util.List;
 public class Enemy {
     // CLASS VARIABLES
     private float speed;
-    private int health;
-    private int damage;
+    private float health;
+    private float damage;
     private Texture texture;
     private Sprite sprite;
     private boolean alive;
@@ -27,7 +27,7 @@ public class Enemy {
 
     // Constructor
     // Excepts start point, speed, health, and damage arguments
-    public Enemy(float xPos, float yPos, float speed, int health, int damage) {
+    public Enemy(float xPos, float yPos, float speed, float health, float damage) {
         // Initializes and instantiates all variables
         this.speed = speed;
         this.health = health;
@@ -48,8 +48,8 @@ public class Enemy {
     public float getXPos() { return sprite.getX(); }
     public float getYPos() { return sprite.getY(); }
     public float getSpeed() { return speed; }
-    public int getHealth() { return health; }
-    public int getDamage() { return damage; }
+    public float getHealth() { return health; }
+    public float getDamage() { return damage; }
     public Texture getTexture() { return texture; }
     public Sprite getSprite() { return sprite; }
     public boolean isAlive() { return alive; }
@@ -66,7 +66,7 @@ public class Enemy {
 
     // Method that makes the enemy take damage
     // it takes a damage argument that controls how much damage the enemy should take
-    public void takeDamage(int damage) {
+    public void takeDamage(float damage) {
         health -= damage; // Removes health
         if (health <= 0) {
             remove(); // Destroys the enemy if the health is reduced below 0
