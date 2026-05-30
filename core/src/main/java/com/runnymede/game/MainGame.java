@@ -192,6 +192,7 @@ public class MainGame implements ApplicationListener{
                     float damage = currentProjectile.getDamage() * (isCrit ? critMultiplier : 1.0f); // Gets the damage delt
                     currentEnemy.takeDamage(damage); // makes the enemy take damage
                     float amtHealed = damage * currentProjectile.getLifeSteal(); // calcs the amt healed
+                    player.heal(amtHealed);
 
                     currentProjectile.setPierce(currentProjectile.getPierce() - 1); // subtracts pierce
 
