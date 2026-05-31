@@ -21,9 +21,9 @@ public class Enemy {
     private List<Node> currentPath; // Tracks the calculated path of nodes that lead to the target
 
     // PATHFINDING CONSTANTS
-    private float pathTimer = 0f; // A timer that triggers a re-calculation of the path
-    private final float pathRefreshRate = 0.25f; // Recalculates route 4 times a second
-    private final float tileSize = 0.5f; // the size of tiles
+    private float PATH_TIMER = 0f; // A timer that triggers a re-calculation of the path
+    private final float PATH_REFRESH_RATE = 0.25f; // Recalculates route 4 times a second
+    private final float TILE_SIZE = 0.5f; // the size of tiles
 
     // Constructor
     // Excepts start point, speed, health, and damage arguments
@@ -122,10 +122,10 @@ public class Enemy {
     // calculate the route to the player and moves through it
     public void navigateTowardsPlayer(float deltaTime, float targetX, float targetY, Pathfinder pathfinder) {
         // Ticks down the recalculation timer
-        pathTimer -= deltaTime;
+        PATH_TIMER -= deltaTime;
 
         // calculates a new route tp the player upon timer expriing
-        if (pathTimer <= 0) {
+        if (PATH_TIMER <= 0) {
 
             // gets the center cords of the enemy
             float centerX = getCenterXPos();
@@ -133,7 +133,7 @@ public class Enemy {
 
             // Sets the current path
             currentPath = pathfinder.findPath(centerX, centerY, targetX, targetY);
-            pathTimer = pathRefreshRate; // Reset timer
+            PATH_TIMER = PATH_REFRESH_RATE; // Reset timer
         }
 
         // as long as the path is valud
@@ -142,8 +142,8 @@ public class Enemy {
             Node nextNode = currentPath.get(0);
 
             // converts grid tile integers back into real world coordinates
-            float nodeTargetX = (nextNode.gridX * tileSize) + (tileSize / 2f);
-            float nodeTargetY = (nextNode.gridY * tileSize) + (tileSize / 2f);
+            float nodeTargetX = (nextNode.gridX * TILE_SIZE) + (TILE_SIZE / 2f);
+            float nodeTargetY = (nextNode.gridY * TILE_SIZE) + (TILE_SIZE / 2f);
 
             //Gets the enemy's center cords
             float centerX = getCenterXPos();
@@ -185,13 +185,13 @@ public class Enemy {
         int gridRows = grid[0].length;
 
         // converts the world cordinates to grid format
-        int startX = Math.max(0, (int) (checkX / tileSize));
-        int startY = Math.max(0, (int) (checkY / tileSize));
-        int endX = Math.min(gridColumns - 1, (int) ((checkX + checkSize) / tileSize));
-        int endY = Math.min(gridRows - 1, (int) ((checkY + checkSize) / tileSize));
+        int startX = Math.max(0, (int) (checkX / TILE_SIZE));
+        int startY = Math.max(0, (int) (checkY / TILE_SIZE));
+        int endX = Math.min(gridColumns - 1, (int) ((checkX + checkSize) / TILE_SIZE));
+        int endY = Math.min(gridRows - 1, (int) ((checkY + checkSize) / TILE_SIZE));
 
         // Creates a temporary Rectangle
-        Rectangle wallBox = new Rectangle(0, 0, tileSize, tileSize);
+        Rectangle wallBox = new Rectangle(0, 0, TILE_SIZE, TILE_SIZE);
 
         // Checks the nodes inside range
         for (int x = startX; x <= endX; x++) {
@@ -200,7 +200,7 @@ public class Enemy {
                 // checks whether the node is walkable (is it a wall)
                 if (!grid[x][y].isWalkable) {
                     // Changes the position of the temp rectangle
-                    wallBox.setPosition(x * tileSize, y * tileSize);
+                    wallBox.setPosition(x * TILE_SIZE, y * TILE_SIZE);
 
                     // If the temp box overlaps the nearby wall node, it will return true
                     // there are walls nearb y
