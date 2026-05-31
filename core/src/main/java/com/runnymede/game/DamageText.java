@@ -1,13 +1,15 @@
 package com.runnymede.game;
 
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 // Manages the text that shows the bullet damage
 public class DamageText {
 
     // CONSTANTS:
-    private final float MAX_LIFE_TIME = 0.8f; // Lasts for 0.8 seconds
-    private final float BASE_SCALE = 0.002f; // Normal scale for letters
+    private final float MAX_LIFE_TIME = 1.2f; // Lasts for 0.8 seconds
+    private final float BASE_SCALE = 0.021f; // Normal scale for letters
     private final float SPEED = 0.4f; // the speed it moves up
 
 
@@ -31,15 +33,12 @@ public class DamageText {
         this.text = String.valueOf(Math.round(damage * 10.0) / 10.0);
 
         // Chooses what color the text should be bassed on if it's a crit and if it kills the enemy
-        if (isLethal) {
-            this.color = new Color(Color.RED); // Red for finishing blows
-        } else if (isCrit) {
-            this.color = new Color(Color.YELLOW); // Yellow for crits
-        } else {
-            this.color = new Color(Color.WHITE); // White for standard damage
-        }
-        float damageScale = (damage/10.0f) * 0.0005f; // Calculate the extra size from damage
-        this.scale = (BASE_SCALE + damageScale) * (isCrit ? 1.5f : 1.0f); // Gets the total letter scale
+        if (isCrit) {this.color = new Color(Color.YELLOW);} // Yellow for crits
+        else if(isLethal) {this.color = new Color(Color.RED);} // Red for finishing blows
+        else {this.color = new Color(Color.WHITE);} // White for standard damage
+
+        float damageScale = (damage/10.0f) * 0.0015f; // Calculate the extra size from damage
+        this.scale = (BASE_SCALE + damageScale) * (isCrit ? 1.3f : 1.0f); // Gets the total letter scale
     }
     // GETTERS:
     public float getX(){return this.x;}
@@ -48,6 +47,10 @@ public class DamageText {
     public float getDespawnTimer(){return this.despawnTimer;}
     public Color getColor(){return this.color;}
     public boolean getActive(){return this.active;}
+    public String getText(){return this.text;}
+
+    // Calculates fading out effect at the end of its life
+    public float getAlpha() {return Math.max(0, despawnTimer / MAX_LIFE_TIME);}
 
     // Updates the text by moving it upwards and decreasing the despawn timer
     public void update(float dt){
@@ -60,9 +63,11 @@ public class DamageText {
         }
     }
 
-    // Calculates fading out effect at the end of its life
-    public float getAlpha() {
-        return Math.max(0, despawnTimer / MAX_LIFE_TIME);
+    // draw method
+    public void draw(SpriteBatch batch, BitmapFont font) {
+        font.getData().setScale(this.scale); // sets the scale
+        font.setColor(this.color.r, this.color.g, this.color.b, getAlpha()); // sets the color (also handles the fade out)
+        font.draw(batch, this.text, this.x, this.y); // draws it
     }
 
 }

@@ -34,6 +34,8 @@ public class MainGame implements ApplicationListener{
     private ArrayList<Rectangle> walls;
     private Texture wallTexture;
 
+    private BitmapFont font;
+
     private ArrayList<Enemy> enemies;
     private float timer;
     private float deltaTime;
@@ -41,13 +43,14 @@ public class MainGame implements ApplicationListener{
     private GridManager gridManager;
     private Pathfinder pathfinder;
 
+    private ArrayList<DamageText> damageTexts;
     private ArrayList<Projectile> projectiles;
     private ArrayList<Upgrade> upgrades;
 
     public void create() {
         spriteBatch = new SpriteBatch();
         enemies = new ArrayList<Enemy>();
-        timer = 0.1f;
+        timer = 0.2f; // for enemy spawns
         player = new Player(10.0f, 10.0f, playerSpeed, 3);
         viewport = new FitViewport(8, 5);
 
@@ -69,8 +72,14 @@ public class MainGame implements ApplicationListener{
         gridManager = new GridManager(walls, worldSize, worldSize);
         pathfinder  = new Pathfinder(gridManager);
 
+        // Initializes the lists of game objects
         projectiles = new ArrayList<Projectile>();
         upgrades = new ArrayList<Upgrade>();
+        damageTexts = new ArrayList<DamageText>();
+
+        // Set up the font to work in world units
+        font = new BitmapFont();
+        font.setUseIntegerPositions(false);
     }
 
     @Override
@@ -95,6 +104,7 @@ public class MainGame implements ApplicationListener{
 
     public void dispose() {
         spriteBatch.dispose();
+        font.dispose();
     }
 
     public void input(float deltaTime){
@@ -108,6 +118,7 @@ public class MainGame implements ApplicationListener{
         float playerXPos = player.getCenterX();
         float playerYPos = player.getCenterY();
         updateProjectiles(deltaTime);
+        updateDamageTexts(deltaTime);
         doEnemyTimer(deltaTime);
         moveEnemiesTowardPlayer(deltaTime, playerXPos, playerYPos);
         doUpgrade(deltaTime);
@@ -127,6 +138,7 @@ public class MainGame implements ApplicationListener{
         drawWalls(); // draws walls
         drawProjectiles(); // draws projectiles
         drawUpgrades(); // draws upgrades
+        drawDamageTexts(); // draws damageTexts
 
         spriteBatch.end(); // ends sprite batch
     }
@@ -138,7 +150,7 @@ public class MainGame implements ApplicationListener{
         else{
             Enemy enemy = new Enemy(1.0f, 1.0f, enemySpeed, 3, 1);
             enemies.add(enemy);
-            timer = 0.5f;
+            timer = 0.8f;
         }
     }
 
@@ -164,37 +176,48 @@ public class MainGame implements ApplicationListener{
         }
     }
 
-    // Updates all projectiles and checks for collision
+    // Updates all projectiles, handles collisions, and spawns damage texts
     public void updateProjectiles(float deltaTime){
         Random rand = new Random(); // Creates new Random object
 
         // Iterates through every projectile
         for (int i = projectiles.size() - 1; i >= 0; i--) {
-            // Gets the projectile and it's hitbox
+            // Gets the projectile and its hitbox
             Projectile currentProjectile = projectiles.get(i);
             Rectangle projectileHitbox = currentProjectile.getHitBox();
 
-            // Moves projectiles, then checks for collisions and updates accordingly
-            currentProjectile.update(deltaTime, walls); // Moves projectiles and handles wall collision
+            // Moves projectiles, then checks for wall collisions
+            currentProjectile.update(deltaTime, walls);
 
             // Iterates through every enemy to check for collisions
             for (int j = enemies.size() - 1; j >= 0; j--) {
                 Enemy currentEnemy = enemies.get(j);
                 Rectangle curEnemyHitBox = currentEnemy.getHitBox();
 
-                // Gets the position of the enemy that is used for upgrade spawning
-                float deathX = currentEnemy.getCenterXPos();
-                float deathY = currentEnemy.getCenterYPos();
+                // Gets the position of the enemy that is used for upgrade and text spawning
+                float enemyX = currentEnemy.getCenterXPos();
+                float enemyY = currentEnemy.getCenterYPos();
 
                 // Checks collision
                 if(projectileHitbox.overlaps(curEnemyHitBox)){
-                    boolean isCrit = (rand.nextDouble() <= currentProjectile.getCritChance()); // Rolls for a crit
-                    float damage = currentProjectile.getDamage() * (isCrit ? critMultiplier : 1.0f); // Gets the damage delt
-                    currentEnemy.takeDamage(damage); // makes the enemy take damage
-                    float amtHealed = damage * currentProjectile.getLifeSteal(); // calcs the amt healed
+                    // 1. Calculate Damage
+                    boolean isCrit = (rand.nextDouble() <= currentProjectile.getCritChance());
+                    float damage = currentProjectile.getDamage() * (isCrit ? critMultiplier : 1.0f);
+
+                    // Applies damage
+                    currentEnemy.takeDamage(damage);
+
+                    // Spawns the damage text
+                    boolean isLethal = !currentEnemy.isAlive(); // Creates a new boolean that detects if the damage was lethal
+                    DamageText text = new DamageText(damage, isCrit, isLethal, enemyX, enemyY);
+                    damageTexts.add(text);
+
+                    // Heals the player by calculated amount
+                    float amtHealed = damage * currentProjectile.getLifeSteal();
                     player.heal(amtHealed);
 
-                    currentProjectile.setPierce(currentProjectile.getPierce() - 1); // subtracts pierce
+                    // Decreases bullet pierce by 1
+                    currentProjectile.setPierce(currentProjectile.getPierce() - 1);
 
                     // If the pierce reaches 0, despawn the projectile
                     if(currentProjectile.getPierce() <= 0){
@@ -204,15 +227,28 @@ public class MainGame implements ApplicationListener{
                     }
                 }
 
+                // Checks if enemy died during this collision
                 if (!currentEnemy.isAlive()) {
                     enemies.remove(currentEnemy);
-                    rollUpgradeSpawn(deathX, deathY);
+                    rollUpgradeSpawn(enemyX, enemyY);
                 }
+
+                // Checks if projectile was deactivated during this collision
                 if (!currentProjectile.getActive()) {
                     projectiles.remove(currentProjectile);
                     System.out.println("REMOVED DUE TO UNACTIVE");
                     break;
                 }
+            }
+        }
+    }
+
+    public void updateDamageTexts(float deltaTime){
+        for(int i = damageTexts.size() - 1; i >= 0; i--){
+            DamageText dt = damageTexts.get(i);
+            dt.update(deltaTime);
+            if(!dt.getActive()){
+                damageTexts.remove(i);
             }
         }
     }
@@ -342,6 +378,11 @@ public class MainGame implements ApplicationListener{
     public void drawUpgrades(){
         for(Upgrade up : upgrades){
             up.draw(spriteBatch);
+        }
+    }
+    public void drawDamageTexts() {
+        for (DamageText dt : damageTexts) {
+            dt.draw(spriteBatch, font);
         }
     }
 }
