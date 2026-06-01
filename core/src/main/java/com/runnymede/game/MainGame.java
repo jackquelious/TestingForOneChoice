@@ -1,31 +1,27 @@
 package com.runnymede.game;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Random;
 
-import com.badlogic.gdx.Input.Keys;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
-import com.badlogic.gdx.audio.Music;
-import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.*;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class MainGame implements ApplicationListener{
     // CONSTANTS:
-    private static final float critMultiplier = 2.5f;
-    private static final float enemySpeed = 1.3f;
-    private static final float playerSpeed = 1.8f;
-    private static final float bulletSpeed = 3.0f;
-    private static final float worldSize = 20.0f;
+    private static final float CRIT_MULTIPLIER = 2.5f;
+    private static final float ENEMY_SPEED = 1.3f;
+    private static final float PLAYER_SPEED = 1.8f;
+    private static final float BULLET_SPEED = 3.0f;
+    private static final float WORLD_SIZE = 20.0f;
+    private static final float PERIODIC_DIFF_INCREMENT = 0.05f;
+    private static final float LEVEL_UP_DIFF_MULT = 1.2f;
+    private static final float DIFF_TIMER_REFRESH = 1.0f;
 
 
     private SpriteBatch spriteBatch;
@@ -47,11 +43,16 @@ public class MainGame implements ApplicationListener{
     private ArrayList<Projectile> projectiles;
     private ArrayList<Upgrade> upgrades;
 
+    private float totalTime;
+    private float difficultyTimer;
+    private float difficultyScale;
+
+
     public void create() {
         spriteBatch = new SpriteBatch();
         enemies = new ArrayList<Enemy>();
         timer = 0.2f; // for enemy spawns
-        player = new Player(10.0f, 10.0f, playerSpeed, 3);
+        player = new Player(10.0f, 10.0f, PLAYER_SPEED, 3);
         viewport = new FitViewport(8, 5);
 
         walls = new ArrayList<Rectangle>();
@@ -69,7 +70,7 @@ public class MainGame implements ApplicationListener{
         walls.add(new Rectangle(17, 12, 1, 1));
 
         //Intiantiates gridManager and pathfinder
-        gridManager = new GridManager(walls, worldSize, worldSize);
+        gridManager = new GridManager(walls, WORLD_SIZE, WORLD_SIZE);
         pathfinder  = new Pathfinder(gridManager);
 
         // Initializes the lists of game objects
@@ -80,6 +81,11 @@ public class MainGame implements ApplicationListener{
         // Set up the font to work in world units
         font = new BitmapFont();
         font.setUseIntegerPositions(false);
+
+        // Initializes the global difficulty timers
+        totalTime = 0;
+        difficultyScale = 1.0f;
+        difficultyTimer = DIFF_TIMER_REFRESH;
     }
 
     @Override
@@ -148,7 +154,7 @@ public class MainGame implements ApplicationListener{
     public void doEnemyTimer(float dt){
         if(timer > 0) timer -= dt;
         else{
-            Enemy enemy = new Enemy(1.0f, 1.0f, enemySpeed, 3, 1);
+            Enemy enemy = new Enemy(1.0f, 1.0f, ENEMY_SPEED, 3, 1);
             enemies.add(enemy);
             timer = 0.8f;
         }
@@ -202,7 +208,7 @@ public class MainGame implements ApplicationListener{
                 if(projectileHitbox.overlaps(curEnemyHitBox)){
                     // 1. Calculate Damage
                     boolean isCrit = (rand.nextDouble() <= currentProjectile.getCritChance());
-                    float damage = currentProjectile.getDamage() * (isCrit ? critMultiplier : 1.0f);
+                    float damage = currentProjectile.getDamage() * (isCrit ? CRIT_MULTIPLIER : 1.0f);
 
                     // Applies damage
                     currentEnemy.takeDamage(damage);
@@ -221,7 +227,6 @@ public class MainGame implements ApplicationListener{
 
                     // If the pierce reaches 0, despawn the projectile
                     if(currentProjectile.getPierce() <= 0){
-                        System.out.println("No Pierce");
                         currentProjectile.setActive(false);
                         currentProjectile.setPosition(-55, 55);
                     }
@@ -236,7 +241,6 @@ public class MainGame implements ApplicationListener{
                 // Checks if projectile was deactivated during this collision
                 if (!currentProjectile.getActive()) {
                     projectiles.remove(currentProjectile);
-                    System.out.println("REMOVED DUE TO UNACTIVE");
                     break;
                 }
             }
@@ -251,6 +255,19 @@ public class MainGame implements ApplicationListener{
                 damageTexts.remove(i);
             }
         }
+    }
+
+    public void handleDifficultyScaling(float deltaTime){
+        totalTime += deltaTime;
+        difficultyTimer -= deltaTime;
+        if(difficultyTimer <= 0){
+            difficultyScale += PERIODIC_DIFF_INCREMENT;
+            difficultyTimer = DIFF_TIMER_REFRESH;
+        }
+    }
+
+    public void progressLevel(){
+        difficultyScale *= LEVEL_UP_DIFF_MULT;
     }
 
 

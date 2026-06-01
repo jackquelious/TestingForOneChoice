@@ -67,7 +67,7 @@ public class DamageText {
     public void draw(SpriteBatch batch, BitmapFont font) {
         font.getData().setScale(this.scale); // sets the scale
         font.setColor(this.color.r, this.color.g, this.color.b, getAlpha()); // sets the color (also handles the fade out)
-        font.draw(batch, this.text, this.x, this.y); // draws it
+        font.draw(batch, this.text, this.x, this.y); // draws itddddd
     }
 
 }

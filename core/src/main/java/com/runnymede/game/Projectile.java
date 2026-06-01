@@ -61,7 +61,6 @@ public class Projectile {
         // Makes a hitBox for it
         hitBox = new Rectangle(spawnX, spawnY, sprite.getWidth(), sprite.getHeight());
         this.active = true; // Has a boolean for active or not
-        System.out.println(bulletBounces);
     }
 
     // GETTERS:
@@ -136,7 +135,6 @@ public class Projectile {
                 hitBox.setPosition(oldX, oldY);
                 this.angle = (float) Math.atan2(changeY, changeX); // Calculates new angle
                 this.bulletBounces -= 1;
-                System.out.println("X wall hit!");
                 break;
             }
         }
@@ -158,17 +156,14 @@ public class Projectile {
                 // Re-calculates the angle
                 this.angle = (float) Math.atan2(changeY, changeX); // Calculates new angle
                 this.bulletBounces -= 1; // Subtracts bullet bounces
-                System.out.println("Y wall hit");
                 break;
             }
         }
 
         // If there is no more bullet bounces despawn the bullet
         if(this.bulletBounces <= 0){
-            System.out.print(this.bulletBounces);
             sprite.setPosition(-55, 50);
             hitBox.setPosition(-55, 50);
-            System.out.println("No More Bounces deactivate");
             this.active = false;
         }
 
