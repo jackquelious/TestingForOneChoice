@@ -154,7 +154,7 @@ public class MainGame implements ApplicationListener{
     public void doEnemyTimer(float dt){
         if(timer > 0) timer -= dt;
         else{
-            Enemy enemy = new Enemy(1.0f, 1.0f, ENEMY_SPEED, 3, 1);
+            Enemy enemy = new Enemy(1.0f, 1.0f, ENEMY_SPEED, 3 * difficultyScale, 1 * difficultyScale);
             enemies.add(enemy);
             timer = 0.8f;
         }

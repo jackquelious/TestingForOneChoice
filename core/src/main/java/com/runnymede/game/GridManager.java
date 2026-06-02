@@ -1,89 +1,74 @@
 package com.runnymede.game;
 
-import com.badlogic.gdx.math.Rectangle;
 import java.util.ArrayList;
 import java.util.List;
 
 public class GridManager {
-    // CLASS VARIABLES:
 
-    private Node[][] grid; // This is the grid of nodes on the map
-
-    // Variables for the number of grids and rows in the world
+    private Node[][] grid;
     private int gridColumns;
     private int gridRows;
 
-    // CONSTANTS:
-    private float tileSize = 0.5f; // Size of nodes/tiles
+
+    // Constants
+    private float TILE_SIZE = 0.5f; // The size of each tile
+
+    // Values that represent a wall or a floor
+    public static final int TILE_WALL = 0;
+    public static final int TILE_FLOOR = 1;
 
     // Constructor
-    public GridManager(ArrayList<Rectangle> walls, float worldWidth, float worldHeight) {
-        this.gridColumns = Math.round(worldWidth / tileSize);
-        this.gridRows = Math.round(worldHeight / tileSize);
-        // initializes the gird and builds it
+    // Generates grid mased on map of tiles
+    public GridManager(int[][] dungeonMap) {
+        // Gets the size of the dungeon
+        this.gridColumns = dungeonMap.length;
+        this.gridRows = dungeonMap[0].length;
+
+        // Makes the grid of nodes
         grid = new Node[gridColumns][gridRows];
-        buildGrid(walls);
+
+        // Runs the build method
+        buildGridFromMap(dungeonMap);
     }
 
-    // The important method
-    // it builds the grid by splitting the map into nodes and recordes whether they are walkable or not
-    private void buildGrid(ArrayList<Rectangle> walls) {
-
-        // Uses two for loops to iterate through the 2d grid
+    // Builds the grid
+    // A floor is walkable, everything else is not
+    private void buildGridFromMap(int[][] dungeonMap) {
         for (int x = 0; x < gridColumns; x++) {
             for (int y = 0; y < gridRows; y++) {
-                boolean walkable = true;
-
-                // Makes a temporary box for each node
-                Rectangle nodeRect = new Rectangle(x * tileSize, y * tileSize, tileSize, tileSize);
-
-                // Check if this square overlaps with any wall in the game
-                for (Rectangle w : walls) {
-                    if (nodeRect.overlaps(w)) {
-                        walkable = false;
-                        break;
-                    }
-                }
-
-                // Save the new node in the array
+                // Node is walkable if the generator marked it as a floor
+                boolean walkable = (dungeonMap[x][y] == TILE_FLOOR);
                 grid[x][y] = new Node(x, y, walkable);
             }
         }
     }
 
-    // this finds which node a point is on
-    // (used to know which node a character is on)
     public Node getNodeFromWorldPosition(float worldX, float worldY) {
-        // Calculates where the point is on the grid
-        int gridX = (int) (worldX / tileSize);
-        int gridY = (int) (worldY / tileSize);
+        int gridX = (int) (worldX / TILE_SIZE);
+        int gridY = (int) (worldY / TILE_SIZE);
 
-        // Safety checks to prevent errors
         if (gridX < 0) gridX = 0;
         if (gridX >= gridColumns) gridX = gridColumns - 1;
         if (gridY < 0) gridY = 0;
         if (gridY >= gridRows) gridY = gridRows - 1;
 
-        // Returns the node
         return grid[gridX][gridY];
     }
 
-    // Returns the nodes around a given node
     public List<Node> getNeighbors(Node node) {
-        // Declares a new list of available nodes
         List<Node> neighbors = new ArrayList<>();
 
-        // If the nodes are in bounds they are added to the list of adjacent nodes
-        if (node.gridX + 1 < gridColumns) neighbors.add(grid[node.gridX + 1][node.gridY]); // Right
-        if (node.gridX - 1 >= 0) neighbors.add(grid[node.gridX - 1][node.gridY]); // Left
-        if (node.gridY + 1 < gridRows) neighbors.add(grid[node.gridX][node.gridY + 1]); // Up
-        if (node.gridY - 1 >= 0) neighbors.add(grid[node.gridX][node.gridY - 1]); // Down
+        if (node.gridX + 1 < gridColumns) neighbors.add(grid[node.gridX + 1][node.gridY]);
+        if (node.gridX - 1 >= 0) neighbors.add(grid[node.gridX - 1][node.gridY]);
+        if (node.gridY + 1 < gridRows) neighbors.add(grid[node.gridX][node.gridY + 1]);
+        if (node.gridY - 1 >= 0) neighbors.add(grid[node.gridX][node.gridY - 1]);
 
         return neighbors;
     }
 
-    public Node getNode(int x, int y) {return grid[x][y];}
-    public Node[][] getGrid(){return grid;}
-    public int getGridColumns() { return gridColumns;}
-    public int getGridRows() { return gridRows;}
+    public Node getNode(int x, int y) { return grid[x][y]; }
+    public Node[][] getGrid() { return grid; }
+    public int getGridColumns() { return gridColumns; }
+    public int getGridRows() { return gridRows; }
+    public float getTileSize() { return TILE_SIZE; }
 }
