@@ -112,30 +112,64 @@ public class Player {
     // MOVEMENT METHODS:
     // calculates the change amount with delta time, speed, and speed multiplier
     // Then moves the player by that amount
-    public void moveLeft(float dt){
+    public void moveLeft(float dt, GridManager gridManager){
+        float oldX = playerSprite.getX();
+        float oldY = playerSprite.getY();
+
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(-changeAmt, 0);
         totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
 
+        if(gridManager.checkWallCollision(totalHitBox)){
+            playerSprite.setX(oldX);
+            totalHitBox.setPosition(oldX, oldY);
+        }
+
     }
 
-    public void moveRight(float dt){
+    public void moveRight(float dt, GridManager gridManager){
+        float oldX = playerSprite.getX();
+        float oldY = playerSprite.getY();
 
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(changeAmt, 0);
         totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
+
+        if(gridManager.checkWallCollision(totalHitBox)){
+            playerSprite.setX(oldX);
+            totalHitBox.setPosition(oldX, oldY);
+        }
+
     }
 
-    public void moveUp(float dt){
+    public void moveUp(float dt, GridManager gridManager){
+        float oldX = playerSprite.getX();
+        float oldY = playerSprite.getY();
+
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(0, changeAmt);
         totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
+
+        if(gridManager.checkWallCollision(totalHitBox)){
+            playerSprite.setY(oldY);
+            totalHitBox.setPosition(oldX, oldY);
+        }
+
     }
 
-    public void moveDown(float dt){
+    public void moveDown(float dt, GridManager gridManager){
+        float oldX = playerSprite.getX();
+        float oldY = playerSprite.getY();
+
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(0, -changeAmt);
         totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
+
+        if(gridManager.checkWallCollision(totalHitBox)){
+            playerSprite.setY(oldY);
+            totalHitBox.setPosition(oldX, oldY);
+        }
+
     }
 
 

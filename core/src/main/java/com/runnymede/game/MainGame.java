@@ -23,6 +23,10 @@ public class MainGame implements ApplicationListener{
     private static final float LEVEL_UP_DIFF_MULT = 1.2f;
     private static final float DIFF_TIMER_REFRESH = 1.0f;
 
+    // Tetures
+    Texture bulletTexture;
+    Texture enemyTexture;
+
 
     private SpriteBatch spriteBatch;
     private Viewport viewport;
@@ -47,7 +51,6 @@ public class MainGame implements ApplicationListener{
     private float difficultyTimer;
     private float difficultyScale;
 
-
     public void create() {
         spriteBatch = new SpriteBatch();
         enemies = new ArrayList<Enemy>();
@@ -56,7 +59,12 @@ public class MainGame implements ApplicationListener{
         viewport = new FitViewport(8, 5);
 
         walls = new ArrayList<Rectangle>();
+
+        //Initalizes the textures
         wallTexture = new Texture("wallTexture.jpg");
+        enemyTexture = new Texture("enemySquare.png");
+        bulletTexture = new Texture("bullet.png");
+
 
         // Creates the room boundaries
         walls.add(new Rectangle(0, 0, 20, 0.5f));       // Bottom Wall
@@ -68,10 +76,6 @@ public class MainGame implements ApplicationListener{
         walls.add(new Rectangle(3, 2, 1, 1));
         walls.add(new Rectangle(15, 3, 1, 1));
         walls.add(new Rectangle(17, 12, 1, 1));
-
-        //Intiantiates gridManager and pathfinder
-        gridManager = new GridManager(walls, WORLD_SIZE, WORLD_SIZE);
-        pathfinder  = new Pathfinder(gridManager);
 
         // Initializes the lists of game objects
         projectiles = new ArrayList<Projectile>();
@@ -86,6 +90,22 @@ public class MainGame implements ApplicationListener{
         totalTime = 0;
         difficultyScale = 1.0f;
         difficultyTimer = DIFF_TIMER_REFRESH;
+
+        // Initializes the generator and creates a clean, structured dungeon layout
+        DungeonGenerator generator = new DungeonGenerator(60, 60);
+        int[][] freshLayout = generator.generateFloor(); // This single call handles everything!
+
+        // Your GridManager instantly maps pathfinding nodes straight to the layout floors!
+        gridManager = new GridManager(freshLayout);
+        pathfinder = new Pathfinder(gridManager);
+
+        Room start = generator.getStartRoom(); // Drops your player perfectly in the middle of safety
+        float tileScale = gridManager.getTileSize();
+
+        // Scale the grid coordinates up to matching world positioning coordinates
+        float spawnX = start.getCenterX() * tileScale;
+        float spawnY = start.getCenterY() * tileScale;
+        player.setPosition(spawnX, spawnY);
     }
 
     @Override
@@ -114,7 +134,7 @@ public class MainGame implements ApplicationListener{
     }
 
     public void input(float deltaTime){
-        doPlayerMovement(deltaTime);
+        doPlayerMovement(deltaTime, gridManager);
         doProjectileInput();
     }
 
@@ -141,7 +161,7 @@ public class MainGame implements ApplicationListener{
 
         player.draw(spriteBatch); // draws player
         drawEnemies(); // draws enemies
-        drawWalls(); // draws walls
+        drawDungeonMap(); // Draws the dungeon
         drawProjectiles(); // draws projectiles
         drawUpgrades(); // draws upgrades
         drawDamageTexts(); // draws damageTexts
@@ -154,7 +174,7 @@ public class MainGame implements ApplicationListener{
     public void doEnemyTimer(float dt){
         if(timer > 0) timer -= dt;
         else{
-            Enemy enemy = new Enemy(1.0f, 1.0f, ENEMY_SPEED, 3 * difficultyScale, 1 * difficultyScale);
+            Enemy enemy = new Enemy(1.0f, 1.0f, ENEMY_SPEED, 3 * difficultyScale, 1 * difficultyScale, enemyTexture);
             enemies.add(enemy);
             timer = 0.8f;
         }
@@ -193,7 +213,7 @@ public class MainGame implements ApplicationListener{
             Rectangle projectileHitbox = currentProjectile.getHitBox();
 
             // Moves projectiles, then checks for wall collisions
-            currentProjectile.update(deltaTime, walls);
+            currentProjectile.update(deltaTime, gridManager);
 
             // Iterates through every enemy to check for collisions
             for (int j = enemies.size() - 1; j >= 0; j--) {
@@ -271,7 +291,7 @@ public class MainGame implements ApplicationListener{
     }
 
 
-    public void doPlayerMovement(float deltaTime){
+    public void doPlayerMovement(float deltaTime, GridManager gridManager){
         // Gets the old player cordinates
         float playerX = player.getX();
         float playerY = player.getY();
@@ -291,27 +311,12 @@ public class MainGame implements ApplicationListener{
 
 
         // Doing x movement first so you can check for walls
-        if(Gdx.input.isKeyPressed(Input.Keys.A)) player.moveLeft(deltaTime);
-        if(Gdx.input.isKeyPressed(Input.Keys.D)) player.moveRight(deltaTime);
-
-        // If after moving you contact a wall reset the position
-        for(Rectangle w : walls) {
-            if (player.getHitBox().overlaps(w)){
-                player.setPosition(playerX, playerY);
-            }
-        }
-
-        playerX = player.getX();
+        if(Gdx.input.isKeyPressed(Input.Keys.A)) player.moveLeft(deltaTime, gridManager);
+        if(Gdx.input.isKeyPressed(Input.Keys.D)) player.moveRight(deltaTime, gridManager);
 
         // Then doing Y to check for the y-axis walls
-        if(Gdx.input.isKeyPressed(Input.Keys.W)) player.moveUp(deltaTime);
-        if(Gdx.input.isKeyPressed(Input.Keys.S)) player.moveDown(deltaTime);
-
-        for(Rectangle w : walls){
-            if(player.getHitBox().overlaps(w)){
-                player.setPosition(playerX, playerY);
-            }
-        }
+        if(Gdx.input.isKeyPressed(Input.Keys.W)) player.moveUp(deltaTime, gridManager);
+        if(Gdx.input.isKeyPressed(Input.Keys.S)) player.moveDown(deltaTime, gridManager);
 
         // Updates the hit box at the end
         player.setTotalHitBox(player.getX(), player.getY());
@@ -335,7 +340,7 @@ public class MainGame implements ApplicationListener{
             // Creates new bullet object
             Projectile newBullet = new Projectile(player.getBulletSpeed(), player.getBulletSize(),
                 player.getCritChance(), player.getLifeSteal(), player.getDamage(), player.getPierce(),
-                player.getBulletBounces(),spawnX, spawnY, mousePos.x, mousePos.y);
+                player.getBulletBounces(),spawnX, spawnY, mousePos.x, mousePos.y, bulletTexture);
 
             // Adds it to the list
             projectiles.add(newBullet);
@@ -380,9 +385,18 @@ public class MainGame implements ApplicationListener{
         }
     }
 
-    public void drawWalls(){
-        for(Rectangle w : walls){
-            spriteBatch.draw(wallTexture, w.x, w.y, w.width, w.height);
+    private void drawDungeonMap() {
+        Node[][] grid = gridManager.getGrid();
+        float size = gridManager.getTileSize();
+
+        // Scan through the entire grid width and height to render tiles
+        for (int x = 0; x < gridManager.getGridColumns(); x++) {
+            for (int y = 0; y < gridManager.getGridRows(); y++) {
+                // If the pathfinder node is not walkable, draw a solid wall texture
+                if (!grid[x][y].isWalkable) {
+                    spriteBatch.draw(wallTexture, x * size, y * size, size, size);
+                }
+            }
         }
     }
 

@@ -2,6 +2,7 @@ package com.runnymede.game;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.badlogic.gdx.math.Rectangle;
 
 public class GridManager {
 
@@ -64,6 +65,37 @@ public class GridManager {
         if (node.gridY - 1 >= 0) neighbors.add(grid[node.gridX][node.gridY - 1]);
 
         return neighbors;
+    }
+
+    // Determines if a moving entity's hitbox is overlapping an unwalkable grid tile
+    public boolean checkWallCollision(Rectangle hitBox) {
+        // Find the bounding grid coordinates that the hitbox covers
+        int startX = (int) (hitBox.getX() / TILE_SIZE);
+        int endX = (int) ((hitBox.getX() + hitBox.getWidth()) / TILE_SIZE);
+        int startY = (int) (hitBox.getY() / TILE_SIZE);
+        int endY = (int) ((hitBox.getY() + hitBox.getHeight()) / TILE_SIZE);
+
+        // Bound checks to completely prevent array index out of bounds crashes
+        startX = Math.max(0, startX);
+        endX = Math.min(gridColumns - 1, endX);
+        startY = Math.max(0, startY);
+        endY = Math.min(gridRows - 1, endY);
+
+        Rectangle tileBox = new Rectangle();
+
+        // Scan only the localized tiles the entity is physically touching
+        for (int x = startX; x <= endX; x++) {
+            for (int y = startY; y <= endY; y++) {
+                // If the tile is solid stone, construct a temporary box to check intersection
+                if (!grid[x][y].isWalkable) {
+                    tileBox.set(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    if (hitBox.overlaps(tileBox)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     public Node getNode(int x, int y) { return grid[x][y]; }

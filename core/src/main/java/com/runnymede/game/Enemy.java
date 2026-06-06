@@ -27,13 +27,13 @@ public class Enemy {
 
     // Constructor
     // Excepts start point, speed, health, and damage arguments
-    public Enemy(float xPos, float yPos, float speed, float health, float damage) {
+    public Enemy(float xPos, float yPos, float speed, float health, float damage, Texture texture) {
         // Initializes and instantiates all variables
         this.speed = speed;
         this.health = health;
         this.damage = damage;
 
-        this.texture = new Texture("enemySquare.png");
+        this.texture = texture;
         this.sprite = new Sprite(texture);
 
         // Sets up the bullet sprite

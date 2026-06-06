@@ -19,6 +19,7 @@ public class Projectile {
 
     private Rectangle hitBox;
     private boolean active; // tracks whether the projectile is active or not
+    private float despawnTimer;
 
     // Variable stats
     private float damage; // damage done by each bullet
@@ -33,7 +34,7 @@ public class Projectile {
     // Takes a start point, target point
     public Projectile(float speed, float bulletSize, float critChance, float lifeSteal,
                       float baseDamage, int pierce, int bulletBounces, float centerX,
-                      float centerY, float targetX, float targetY) {
+                      float centerY, float targetX, float targetY, Texture texture) {
         // Gets the angle to the target to be used in the update method
         this.angle = getAngleToTarget(centerX, centerY, targetX, targetY);
 
@@ -51,7 +52,7 @@ public class Projectile {
         this.bulletBounces = bulletBounces;
 
 
-        this.texture = new Texture("bullet.png");
+        this.texture = texture;
 
         // Makes a sprite and configures it
         this.sprite = new Sprite(texture);
@@ -61,17 +62,21 @@ public class Projectile {
         // Makes a hitBox for it
         hitBox = new Rectangle(spawnX, spawnY, sprite.getWidth(), sprite.getHeight());
         this.active = true; // Has a boolean for active or not
+
+        despawnTimer = 2.0f; // Time until bullet despawns
     }
 
     // GETTERS:
     public Rectangle getHitBox(){return hitBox;}
     public boolean getActive(){return active;}
 
+    public float getDespawnTimer(){return despawnTimer;}
+
     public float getX(){return sprite.getX();}
     public float getY(){return sprite.getY();}
 
-    public float getCenterX(){return sprite.getX() +(sprite.getWidth() / 2.0f);}
-    public float getCenterY(){return sprite.getY() +(sprite.getHeight() / 2.0f);}
+    public float getCenterX(){return sprite.getX() + (sprite.getWidth() / 2.0f);}
+    public float getCenterY(){return sprite.getY() + (sprite.getHeight() / 2.0f);}
 
     public Sprite getSprite(){return sprite;}
     public float getDamage(){return damage;}
@@ -110,8 +115,9 @@ public class Projectile {
     // The important method
     // This method updates the bullets positions every frame
     // Then checks for wall collisions
-    public void update(float dt, List<Rectangle> walls) {
+    public void update(float dt, GridManager gridManager) {
         Random rand = new Random(); // Declares new instance of random class
+
         // Calculates the amount the bullet should change positions for each axis
         float changeX =  (float) Math.cos(angle) * dt * this.speed;
         float changeY =  (float) Math.sin(angle) * dt * this.speed;
@@ -125,39 +131,35 @@ public class Projectile {
         hitBox.setPosition(sprite.getX(), sprite.getY());
 
         // Checks all walls for collision
-        for(Rectangle w : walls){
-            // If they overlap roll back position and change the angle
-            if(hitBox.overlaps(w)){
-                changeX = -changeX; // Reverses the X velocity
+        if(gridManager.checkWallCollision(hitBox)){
 
-                // Reset the positions
-                sprite.setPosition(oldX, oldY);
-                hitBox.setPosition(oldX, oldY);
-                this.angle = (float) Math.atan2(changeY, changeX); // Calculates new angle
-                this.bulletBounces -= 1;
-                break;
-            }
+            // If they overlap roll back position and change the angle
+            changeX = -changeX; // Reverses the X velocity
+
+            // Reset the positions
+            sprite.setPosition(oldX, oldY);
+            hitBox.setPosition(oldX, oldY);
+            this.angle = (float) Math.atan2(changeY, changeX); // Calculates new angle
+            this.bulletBounces -= 1;
         }
 
-        // Moves the sprite in the X direction
+        // Moves the sprite in the Y direction
         sprite.translate(0, changeY);
         hitBox.setPosition(sprite.getX(), sprite.getY());
 
         // Checks all walls for collision
-        for(Rectangle w : walls){
+        if(gridManager.checkWallCollision(hitBox)){
             // If they overlap roll back position and change the angle
-            if(hitBox.overlaps(w)){
-                changeY = -changeY; // Reverses the X velocity
+            changeY = -changeY; // Reverses the X velocity
 
-                // Reset the positions
-                sprite.setPosition(oldX, oldY);
-                hitBox.setPosition(oldX, oldY);
+            // Reset the positions
+            sprite.setPosition(oldX, oldY);
+            hitBox.setPosition(oldX, oldY);
 
-                // Re-calculates the angle
-                this.angle = (float) Math.atan2(changeY, changeX); // Calculates new angle
-                this.bulletBounces -= 1; // Subtracts bullet bounces
-                break;
-            }
+            // Re-calculates the angle
+            this.angle = (float) Math.atan2(changeY, changeX);
+            this.bulletBounces -= 1; // Subtracts bullet bounces
+
         }
 
         // If there is no more bullet bounces despawn the bullet
