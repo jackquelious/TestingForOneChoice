@@ -7,23 +7,25 @@ import com.badlogic.gdx.math.Rectangle;
 
 import java.util.List;
 
-public class Enemy {
+public abstract class Enemy {
     // CLASS VARIABLES
-    private float speed;
-    private float health;
-    private float damage;
-    private Texture texture;
-    private Sprite sprite;
-    private boolean alive;
-    private Rectangle hitBox;
+    protected float speed;
+    protected float health;
+    protected float damage;
+    protected Texture texture;
+    protected Sprite sprite;
+    protected boolean alive;
+    protected Rectangle hitBox;
 
-    // For pathfinding
-    private List<Node> currentPath; // Tracks the calculated path of nodes that lead to the target
+    protected List<Node> currentPath; // Tracks the calculated path of nodes that lead to the target
+
+    // Constants
+    protected float ENEMY_SIZE = 0.35f;
 
     // PATHFINDING CONSTANTS
-    private float PATH_TIMER = 0f; // A timer that triggers a re-calculation of the path
-    private final float PATH_REFRESH_RATE = 0.25f; // Recalculates route 4 times a second
-    private final float TILE_SIZE = 0.5f; // the size of tiles
+    protected float PATH_TIMER = 0f; // A timer that triggers a re-calculation of the path
+    protected final float PATH_REFRESH_RATE = 0.25f; // Recalculates route 4 times a second
+    protected final float TILE_SIZE = 0.5f; // the size of tiles
 
     // Constructor
     // Excepts start point, speed, health, and damage arguments
@@ -37,7 +39,7 @@ public class Enemy {
         this.sprite = new Sprite(texture);
 
         // Sets up the bullet sprite
-        this.sprite.setSize(0.4f, 0.4f);
+        this.sprite.setSize(ENEMY_SIZE, ENEMY_SIZE);
         this.sprite.setPosition(xPos, yPos);
 
         this.hitBox = new Rectangle(xPos, yPos, sprite.getWidth(), sprite.getHeight()); // Creates the hitbox
@@ -168,7 +170,7 @@ public class Enemy {
     }
 
     // This method checks if there are enemies nearby
-    public boolean areWallsNearby(float centerX, float centerY, float radius, GridManager gridManager) {
+    protected boolean areWallsNearby(float centerX, float centerY, float radius, GridManager gridManager) {
         // Creates a hit box around the enemy
 
         // Calculates the lower left position of the hit Box
@@ -213,6 +215,16 @@ public class Enemy {
 
         return false; // If it doesn't detect anything there are no walls nearby
     }
+
+    protected float getDistanceToPoint(float startX, float startY, float endX, float endY) {
+        float deltaX = startX - endX;
+        float deltaY = startY - endY;
+        float distance = (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        return Math.abs(distance);
+    }
+
+    // Abstract method that will update the enemy AI
+    public abstract void updateAi(float dt, float targetX, float targetY ,float radius, GridManager gridManager, Pathfinder pathfinder, MainGame mainGame);
 
     // Draw method
     public void draw(SpriteBatch batch) {

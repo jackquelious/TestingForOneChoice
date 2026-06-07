@@ -13,15 +13,34 @@ import com.badlogic.gdx.*;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class MainGame implements ApplicationListener{
-    // CONSTANTS:
+    /// CONSTANTS:
     private static final float CRIT_MULTIPLIER = 2.5f;
-    private static final float ENEMY_SPEED = 1.3f;
-    private static final float PLAYER_SPEED = 1.8f;
-    private static final float BULLET_SPEED = 3.0f;
-    private static final float WORLD_SIZE = 20.0f;
-    private static final float PERIODIC_DIFF_INCREMENT = 0.05f;
+
+    private static final float PLAYER_SPEED = 2.1f;
+    private static final float PERIODIC_DIFF_INCREMENT = 0.03f;
     private static final float LEVEL_UP_DIFF_MULT = 1.2f;
-    private static final float DIFF_TIMER_REFRESH = 1.0f;
+    private static final float DIFF_TIMER_REFRESH = 0.8f;
+
+    // Enemy constants
+    private static final float ENEMY_TIMER_REFRESH = 0.8f;
+    private static final float ENEMY_BEHAVIOUR_RADIUS = 0.4f;
+
+    // Melee constants
+    private static final float MELEE_BASE_SPEED = 1.6f;
+    private static final float MELEE_BASE_DAMAGE = 1.0f;
+    private static final float MELEE_BASE_HEALTH = 3.0f;
+
+    // RANGED CONSTANTS
+    private static final float RANGED_BASE_SPEED = 0.8f;
+    private static final float RANGED_BASE_DAMAGE = 1.0f;
+    private static final float RANGED_BASE_HEALTH = 3.0f;
+
+    private static final float RANGED_BASE_BULLET_SPEED = 4.5f;
+    private static final float RANGED_BASE_BULLET_SIZE = 3.0f;
+    private static final float RANGED_BASE_SHOOT_RANGE = 9.2f;
+
+    private static final float RANGED_BASE_RETREAT_TIME = 1.5f;
+    private static final float RANGED_BASE_ATTACK_TIME = 0.8f;
 
     // Tetures
     Texture bulletTexture;
@@ -36,18 +55,18 @@ public class MainGame implements ApplicationListener{
 
     private BitmapFont font;
 
-    private ArrayList<Enemy> enemies;
+
     private float timer;
     private float deltaTime;
     private Player player;
     private GridManager gridManager;
     private Pathfinder pathfinder;
 
+    private ArrayList<Enemy> enemies;
     private ArrayList<DamageText> damageTexts;
     private ArrayList<Projectile> projectiles;
     private ArrayList<Upgrade> upgrades;
 
-    private float totalTime;
     private float difficultyTimer;
     private float difficultyScale;
 
@@ -86,8 +105,6 @@ public class MainGame implements ApplicationListener{
         font = new BitmapFont();
         font.setUseIntegerPositions(false);
 
-        // Initializes the global difficulty timers
-        totalTime = 0;
         difficultyScale = 1.0f;
         difficultyTimer = DIFF_TIMER_REFRESH;
 
@@ -146,9 +163,10 @@ public class MainGame implements ApplicationListener{
         updateProjectiles(deltaTime);
         updateDamageTexts(deltaTime);
         doEnemyTimer(deltaTime);
-        moveEnemiesTowardPlayer(deltaTime, playerXPos, playerYPos);
+        updateAllEnemies(deltaTime, playerXPos, playerYPos);
         doUpgrade(deltaTime);
         updateCamera();
+        handleDifficultyScaling(deltaTime);
 
     }
 
@@ -174,31 +192,20 @@ public class MainGame implements ApplicationListener{
     public void doEnemyTimer(float dt){
         if(timer > 0) timer -= dt;
         else{
-            Enemy enemy = new Enemy(1.0f, 1.0f, ENEMY_SPEED, 3 * difficultyScale, 1 * difficultyScale, enemyTexture);
+            RangedEnemy enemy = new RangedEnemy(1.0f, 1.0f, RANGED_BASE_SPEED , 3 * difficultyScale,
+                RANGED_BASE_DAMAGE * difficultyScale, enemyTexture, RANGED_BASE_SHOOT_RANGE, RANGED_BASE_ATTACK_TIME,
+                RANGED_BASE_RETREAT_TIME, RANGED_BASE_BULLET_SPEED, RANGED_BASE_BULLET_SIZE, bulletTexture);
+
             enemies.add(enemy);
-            timer = 0.8f;
+            timer = ENEMY_TIMER_REFRESH;
         }
     }
 
     // This method moves the enemies toward the player
-    public void moveEnemiesTowardPlayer(float dt, float playerX, float playerY){
+    public void updateAllEnemies(float dt, float playerX, float playerY){
         // Iterates through every enemy
         for(Enemy e : enemies){
-            // gets the cordinates
-            float enemyCenterX = e.getCenterXPos();
-            float enemyCenterY = e.getCenterYPos();
-
-            // Checks if there are nearby obstacles
-            // If there are the enemy will use node based tracking otherwise it just uses direct movement
-            if (!e.areWallsNearby(enemyCenterX, enemyCenterY, 0.4f, gridManager)) {
-                // Direct tracking logic
-                e.moveTowardsPoint(dt, playerX, playerY);
-                // Clears the current node path
-                if (e.getCurrentPath() != null) e.getCurrentPath().clear();
-                continue;
-            }
-            // Otherwise use the navigation method
-            e.navigateTowardsPlayer(dt, playerX, playerY, pathfinder);
+            e.updateAi(dt, playerX, playerY, ENEMY_BEHAVIOUR_RADIUS, gridManager, pathfinder, this);
         }
     }
 
@@ -215,55 +222,78 @@ public class MainGame implements ApplicationListener{
             // Moves projectiles, then checks for wall collisions
             currentProjectile.update(deltaTime, gridManager);
 
-            // Iterates through every enemy to check for collisions
-            for (int j = enemies.size() - 1; j >= 0; j--) {
-                Enemy currentEnemy = enemies.get(j);
-                Rectangle curEnemyHitBox = currentEnemy.getHitBox();
+            // If the projectile is owned by player, detect enemy collisions
+            if(currentProjectile.getOwner()){
+                // Iterates through every enemy to check for collisions
+                for (int j = enemies.size() - 1; j >= 0; j--) {
+                    Enemy currentEnemy = enemies.get(j);
+                    Rectangle curEnemyHitBox = currentEnemy.getHitBox();
 
-                // Gets the position of the enemy that is used for upgrade and text spawning
-                float enemyX = currentEnemy.getCenterXPos();
-                float enemyY = currentEnemy.getCenterYPos();
+                    // Gets the position of the enemy that is used for upgrade and text spawning
+                    float enemyX = currentEnemy.getCenterXPos();
+                    float enemyY = currentEnemy.getCenterYPos();
 
-                // Checks collision
-                if(projectileHitbox.overlaps(curEnemyHitBox)){
-                    // 1. Calculate Damage
-                    boolean isCrit = (rand.nextDouble() <= currentProjectile.getCritChance());
-                    float damage = currentProjectile.getDamage() * (isCrit ? CRIT_MULTIPLIER : 1.0f);
+                    // Checks collision
+                    if (projectileHitbox.overlaps(curEnemyHitBox)) {
+                        // 1. Calculate Damage
+                        boolean isCrit = (rand.nextDouble() <= currentProjectile.getCritChance());
+                        float damage = currentProjectile.getDamage() * (isCrit ? CRIT_MULTIPLIER : 1.0f);
 
-                    // Applies damage
-                    currentEnemy.takeDamage(damage);
+                        // Applies damage
+                        currentEnemy.takeDamage(damage);
 
-                    // Spawns the damage text
-                    boolean isLethal = !currentEnemy.isAlive(); // Creates a new boolean that detects if the damage was lethal
-                    DamageText text = new DamageText(damage, isCrit, isLethal, enemyX, enemyY);
+                        // Spawns the damage text
+                        boolean isLethal = !currentEnemy.isAlive(); // Creates a new boolean that detects if the damage was lethal
+                        DamageText text = new DamageText(damage, isCrit, isLethal, enemyX, enemyY);
+                        damageTexts.add(text);
+
+                        // Heals the player by calculated amount
+                        float amtHealed = damage * currentProjectile.getLifeSteal();
+                        player.heal(amtHealed);
+
+                        // Decreases bullet pierce by 1
+                        currentProjectile.setPierce(currentProjectile.getPierce() - 1);
+
+                        // If the pierce reaches 0, despawn the projectile
+                        if (currentProjectile.getPierce() <= 0) {
+                            currentProjectile.setActive(false);
+                            currentProjectile.setPosition(-55, 55);
+                        }
+                    }
+
+                    // Checks if enemy died during this collision
+                    if (!currentEnemy.isAlive()) {
+                        enemies.remove(currentEnemy);
+                        rollUpgradeSpawn(enemyX, enemyY);
+                    }
+                }
+            } else { // otherwise detect player collisions
+                if (player.getHitBox().overlaps(currentProjectile.getHitBox())) {
+                    player.takeDamage(currentProjectile.getDamage());
+                    currentProjectile.setPierce(0);
+
+                    // Adds a damage text
+                    // FIXME: change lethal stuff after adding player death
+                    DamageText text = new DamageText(currentProjectile.getDamage(), false, false, player.getX(), player.getY());
                     damageTexts.add(text);
 
-                    // Heals the player by calculated amount
-                    float amtHealed = damage * currentProjectile.getLifeSteal();
-                    player.heal(amtHealed);
-
-                    // Decreases bullet pierce by 1
-                    currentProjectile.setPierce(currentProjectile.getPierce() - 1);
-
                     // If the pierce reaches 0, despawn the projectile
-                    if(currentProjectile.getPierce() <= 0){
+                    if (currentProjectile.getPierce() <= 0) {
                         currentProjectile.setActive(false);
                         currentProjectile.setPosition(-55, 55);
                     }
+
                 }
 
-                // Checks if enemy died during this collision
-                if (!currentEnemy.isAlive()) {
-                    enemies.remove(currentEnemy);
-                    rollUpgradeSpawn(enemyX, enemyY);
-                }
-
-                // Checks if projectile was deactivated during this collision
-                if (!currentProjectile.getActive()) {
-                    projectiles.remove(currentProjectile);
-                    break;
-                }
             }
+
+
+            // Checks if projectile was deactivated during this collision
+            if (!currentProjectile.getActive()) {
+                projectiles.remove(currentProjectile);
+                break;
+            }
+
         }
     }
 
@@ -278,7 +308,6 @@ public class MainGame implements ApplicationListener{
     }
 
     public void handleDifficultyScaling(float deltaTime){
-        totalTime += deltaTime;
         difficultyTimer -= deltaTime;
         if(difficultyTimer <= 0){
             difficultyScale += PERIODIC_DIFF_INCREMENT;
@@ -338,7 +367,7 @@ public class MainGame implements ApplicationListener{
             float spawnY = player.getCenterY();
 
             // Creates new bullet object
-            Projectile newBullet = new Projectile(player.getBulletSpeed(), player.getBulletSize(),
+            Projectile newBullet = new Projectile(true, player.getBulletSpeed(), player.getBulletSize(),
                 player.getCritChance(), player.getLifeSteal(), player.getDamage(), player.getPierce(),
                 player.getBulletBounces(),spawnX, spawnY, mousePos.x, mousePos.y, bulletTexture);
 
@@ -416,4 +445,14 @@ public class MainGame implements ApplicationListener{
             dt.draw(spriteBatch, font);
         }
     }
+
+    // Methods that update the private methods so other classes can edit them
+    public void addProjectile(Projectile p){projectiles.add(p);}
+    public void removeProjectile(Projectile p){projectiles.remove(p);}
+    public void addUpgrade(Upgrade up){upgrades.add(up);}
+    public void removeUpgrade(Upgrade up){upgrades.remove(up);}
+    public void addEnemy(Enemy enemy){enemies.add(enemy);}
+    public void removeEnemy(Enemy enemy){enemies.remove(enemy);}
+    public void addDamageText(DamageText dt){damageTexts.add(dt);}
+    public void removeDamageText(DamageText dt){damageTexts.remove(dt);}
 }

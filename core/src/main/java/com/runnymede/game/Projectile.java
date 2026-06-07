@@ -11,6 +11,8 @@ import java.util.Random;
 
 public class Projectile {
     // CLASS VARIABLES:
+    private boolean belongsToPlayer; // tracks if it is an enemy or player projectile
+
     private Texture texture;
     private Sprite sprite;
 
@@ -32,9 +34,10 @@ public class Projectile {
 
     // constructor
     // Takes a start point, target point
-    public Projectile(float speed, float bulletSize, float critChance, float lifeSteal,
-                      float baseDamage, int pierce, int bulletBounces, float centerX,
-                      float centerY, float targetX, float targetY, Texture texture) {
+    public Projectile(boolean belongsToPlayer, float speed, float bulletSize, float critChance,
+                      float lifeSteal, float baseDamage, int pierce, int bulletBounces,
+                      float centerX, float centerY, float targetX, float targetY, Texture texture) {
+
         // Gets the angle to the target to be used in the update method
         this.angle = getAngleToTarget(centerX, centerY, targetX, targetY);
 
@@ -50,6 +53,7 @@ public class Projectile {
         this.lifeSteal = lifeSteal;
         this.pierce = pierce;
         this.bulletBounces = bulletBounces;
+        this.belongsToPlayer = belongsToPlayer;
 
 
         this.texture = texture;
@@ -78,6 +82,7 @@ public class Projectile {
     public float getCenterX(){return sprite.getX() + (sprite.getWidth() / 2.0f);}
     public float getCenterY(){return sprite.getY() + (sprite.getHeight() / 2.0f);}
 
+    public boolean getOwner() {return belongsToPlayer;}
     public Sprite getSprite(){return sprite;}
     public float getDamage(){return damage;}
     public float getSpeed(){return speed;}
@@ -88,6 +93,7 @@ public class Projectile {
     public int getPierce(){return pierce;}
 
     // SETTERS
+    public void setOwner(boolean belongsToPlayer){this.belongsToPlayer = belongsToPlayer;}
     public void setActive(boolean active) {this.active = active;}
     public void setDamage(float damage) {this.damage = damage;}
     public void setSpeed(float speed) {this.speed = speed;}

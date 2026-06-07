@@ -8,9 +8,9 @@ import com.badlogic.gdx.math.Rectangle;
 
 public class Player {
     //  CONSTANTS (default values):
-    private final float PLAYER_SIZE = 0.55f;
+    private final float PLAYER_SIZE = 0.4f;
     private final int DAMAGE = 1;
-    private final float BULLET_SIZE = 0.2f;
+    private final float BULLET_SIZE = 0.18f;
     private final float BULLET_SPEED = 5.0f;
     private final float CRIT_CHANCE = 0.0f;
     private final float LIFE_STEAL = 0.0f;
@@ -107,6 +107,13 @@ public class Player {
     public void heal(float healAmt){
         if((health + healAmt) <= maxHealth) health += healAmt;
         else health = maxHealth;
+    }
+
+    public void takeDamage(float damage){
+        health -= damage;
+        if(health <= 0){
+            // FILL IN LATER*************************************
+        }
     }
 
     // MOVEMENT METHODS:
