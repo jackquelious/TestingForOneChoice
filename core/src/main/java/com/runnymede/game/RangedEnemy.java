@@ -74,16 +74,33 @@ public class RangedEnemy extends Enemy{
                     // Add the projectile to the list
                     mainGame.addProjectile(newProjectile);
                     state = State.Retreating; // change state
+                    attackTime = maxAttackTime;
                 } else{attackTime -= dt;} // lower attack timer
                 break;
 
             case Retreating:
                 if(retreatTime <= 0){
+                    retreatTime = maxRetreatTime;
                     state = State.Approaching;
-                } else{
-                    //FIXME implement moving away from player implementation
+                } else {
+                    retreatTime -= dt;
+
+                    // Calculate the push vector away from the player
+                    float deltaX = centerX - targetX;
+                    float deltaY = centerY - targetY;
+
+                    float retreatX = centerX + deltaX;
+                    float retreatY = centerY + deltaY;
+
+                    // Retreats away from playerww
+                    if (!areWallsNearby(centerX, centerY, radius, gridManager)) {
+                        moveTowardsPoint(dt, retreatX, retreatY);
+                        if (getCurrentPath() != null) getCurrentPath().clear();
+                    } else {navigateTowardsPlayer(dt, retreatX, retreatY, pathfinder);}
+                }
+                break;
                 }
 
         }
     }
-}
+

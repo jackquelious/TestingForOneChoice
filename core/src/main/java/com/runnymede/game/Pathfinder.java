@@ -7,6 +7,8 @@ import java.util.List;
 public class Pathfinder {
     private GridManager gridManager; // Uses a grid manager
 
+    private static float TILE_SIZE = 0.5f;
+
     public Pathfinder(GridManager gridManager) {
         this.gridManager = gridManager; //  initializes grid manager
     }
@@ -14,9 +16,36 @@ public class Pathfinder {
     // IMPORTANT METHOD
     // returns the list of nodes that leads to the player
     public List<Node> findPath(float startWorldX, float startWorldY, float targetWorldX, float targetWorldY) {
+        // 1. Convert real world floats into grid integers
+        int startGridX = (int)(startWorldX / TILE_SIZE);
+        int startGridY = (int)(startWorldY / TILE_SIZE);
+        int targetGridX = (int)(targetWorldX / TILE_SIZE);
+        int targetGridY = (int)(targetWorldY / TILE_SIZE);
+
+        // Guardrails: Keep the indices safely within your 60x60 grid arrays
+        targetGridX = Math.max(0, Math.min(targetGridX, gridManager.getGridColumns() - 1));
+        targetGridY = Math.max(0, Math.min(targetGridY, gridManager.getGridRows() - 1));
+
+        Node[][] grid = gridManager.getGrid();
+
+        // 2. THE FIX: If the retreat point is a wall, find a nearby floor tile!
+        if (!grid[targetGridX][targetGridY].isWalkable) {
+            // Look at the 4 adjacent tiles (Left, Right, Down, Up) to find a floor
+            if (targetGridX - 1 >= 0 && grid[targetGridX - 1][targetGridY].isWalkable) {
+                targetGridX -= 1;
+            } else if (targetGridX + 1 < gridManager.getGridColumns() && grid[targetGridX + 1][targetGridY].isWalkable) {
+                targetGridX += 1;
+            } else if (targetGridY - 1 >= 0 && grid[targetGridX][targetGridY - 1].isWalkable) {
+                targetGridY -= 1;
+            } else if (targetGridY + 1 < gridManager.getGridRows() && grid[targetGridX][targetGridY + 1].isWalkable) {
+                targetGridY += 1;
+            }
+        }
+
         // gets the nodes of the start and end points
         Node startNode = gridManager.getNodeFromWorldPosition(startWorldX, startWorldY);
         Node targetNode = gridManager.getNodeFromWorldPosition(targetWorldX, targetWorldY);
+
 
         // Creates two lists that track which nodes need to be explored and which nodes are already explored
         List<Node> openList = new ArrayList<>(); // tracks the to-be explored nodes

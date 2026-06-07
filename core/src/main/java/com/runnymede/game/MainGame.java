@@ -36,8 +36,8 @@ public class MainGame implements ApplicationListener{
     private static final float RANGED_BASE_HEALTH = 3.0f;
 
     private static final float RANGED_BASE_BULLET_SPEED = 4.5f;
-    private static final float RANGED_BASE_BULLET_SIZE = 3.0f;
-    private static final float RANGED_BASE_SHOOT_RANGE = 9.2f;
+    private static final float RANGED_BASE_BULLET_SIZE = 0.2f;
+    private static final float RANGED_BASE_SHOOT_RANGE = 3.2f;
 
     private static final float RANGED_BASE_RETREAT_TIME = 1.5f;
     private static final float RANGED_BASE_ATTACK_TIME = 0.8f;
