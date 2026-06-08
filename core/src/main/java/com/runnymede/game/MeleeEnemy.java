@@ -16,12 +16,12 @@ public class MeleeEnemy extends Enemy{
         // If there are the enemy will use node based tracking otherwise it just uses direct movement
         if (!areWallsNearby(enemyCenterX, enemyCenterY, radius, gridManager)) {
             // Direct tracking logic
-            moveTowardsPoint(dt, targetX, targetY);
+            moveTowardsPoint(dt, targetX, targetY, gridManager);
             // Clears the current node path
             if (getCurrentPath() != null) getCurrentPath().clear();
         } else {
         // Otherwise use the navigation method
-        navigateTowardsPlayer(dt, targetX, targetY, pathfinder);
+        navigateTowardsPlayer(dt, targetX, targetY, pathfinder, gridManager);
         }
     }
 }

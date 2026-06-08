@@ -8,7 +8,7 @@ import com.badlogic.gdx.math.Rectangle;
 
 public class Player {
     //  CONSTANTS (default values):
-    private final float PLAYER_SIZE = 0.4f;
+    private final float PLAYER_SIZE = 0.32f;
     private final int DAMAGE = 1;
     private final float BULLET_SIZE = 0.18f;
     private final float BULLET_SPEED = 5.0f;

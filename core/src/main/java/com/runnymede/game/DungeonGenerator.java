@@ -57,6 +57,32 @@ public class DungeonGenerator {
         "##########"
     };
 
+    private static final String[] DIAGONAL_ROOM  = {
+        "##########",
+        "#........#",
+        "#.....#..#",
+        "#....#...#",
+        "#...#....#",
+        "#..#.....#",
+        "#.#......#",
+        "#....#...#",
+        "#........#",
+        "##########"
+    };
+
+    private static final String[] AMOUNG_US  = {
+        "##########",
+        "#........#",
+        "#..####..#",
+        "#.#####..#",
+        "#.#####..#",
+        "#..###...#",
+        "#.#...#..#",
+        "#.#....#.#",
+        "#........#",
+        "##########"
+    };
+
     private int[][] map;
     private int mapWidth;
     private int mapHeight;
@@ -163,13 +189,17 @@ public class DungeonGenerator {
     }
 
     private String[] getRandomTemplate(Room.RoomType type) {
+        Random rand = new Random();
         if (type == Room.RoomType.START || type == Room.RoomType.BOSS || type == Room.RoomType.PORTAL) {
             return EMPTY_ROOM;
         }
 
-        int roll = MathUtils.random(0, 2);
+        int roll = rand .nextInt(0, 5);
         if (roll == 1) return CENTER_PILLAR_ROOM;
         if (roll == 2) return FOUR_CORNERS_ROOM;
+        if (roll == 3) return DIAGONAL_ROOM;
+        if (roll == 4) return AMOUNG_US;
+
         return EMPTY_ROOM;
     }
 

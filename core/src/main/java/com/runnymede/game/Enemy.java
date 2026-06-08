@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 
+import java.awt.*;
 import java.util.List;
 
 public abstract class Enemy {
@@ -20,7 +21,7 @@ public abstract class Enemy {
     protected List<Node> currentPath; // Tracks the calculated path of nodes that lead to the target
 
     // Constants
-    protected float ENEMY_SIZE = 0.35f;
+    protected float ENEMY_SIZE = 0.23f;
 
     // PATHFINDING CONSTANTS
     protected float PATH_TIMER = 0f; // A timer that triggers a re-calculation of the path
@@ -61,10 +62,23 @@ public abstract class Enemy {
     public float getCenterXPos() {
         return  sprite.getX() + (sprite.getWidth() / 2);
     }
-
     public float getCenterYPos() {
         return  sprite.getY() + (sprite.getHeight() / 2);
     }
+
+    // SETTERS:
+    public void setXPos(float xPos) { sprite.setX(xPos); }
+    public void setYPos(float yPos) { sprite.setY(yPos); }
+    public void setSpeed(float speed) { this.speed = speed; }
+    public void setHealth(float health) { this.health = health; }
+    public void setDamage(float damage) { this.damage = damage; }
+    public void setTexture(Texture texture) { this.texture = texture; }
+    public void setSprite(Sprite sprite) { this.sprite = sprite; }
+    public void setHitBox(Rectangle hitBox) { this.hitBox = hitBox; }
+
+    public void setPosition(float x, float y) { sprite.setPosition(x, y); hitBox.setPosition(x, y); }
+    public void setSpritePosition(float x, float y) { sprite.setPosition(x, y); }
+
 
     // Method that makes the enemy take damage
     // it takes a damage argument that controls how much damage the enemy should take
@@ -108,7 +122,10 @@ public abstract class Enemy {
     }
 
     // A method that can be periodically run to move the enemy to a point
-    public void moveTowardsPoint(float deltaTime, float targetX, float targetY) {
+    public void moveTowardsPoint(float deltaTime, float targetX, float targetY, GridManager gridManager) {
+        float enemyX = getXPos();
+        float enemyY = getYPos();
+
         // Gets the angle to the target
         float angle = getAngleToPoint(targetX, targetY);
 
@@ -117,12 +134,24 @@ public abstract class Enemy {
         float yMoveAmount = (float) (speed * Math.sin(angle) * deltaTime);
 
         // Moves the sprite and updates the hit box
-        sprite.translate(xMoveAmount, yMoveAmount);
+        sprite.translate(xMoveAmount, 0);
         setHitBoxPos(sprite.getX(), sprite.getY());
+
+        if(gridManager.checkWallCollision(hitBox)){
+            sprite.setPosition(enemyX, enemyY);
+            hitBox.setPosition(enemyX, enemyY);
+        }
+
+        sprite.translate(0, yMoveAmount);
+        setHitBoxPos(sprite.getX(), sprite.getY());
+        if(gridManager.checkWallCollision(hitBox)){
+            sprite.setPosition(enemyX, enemyY);
+            setHitBoxPos(sprite.getX(), sprite.getY());
+        }
     }
 
     // calculate the route to the player and moves through it
-    public void navigateTowardsPlayer(float deltaTime, float targetX, float targetY, Pathfinder pathfinder) {
+    public void navigateTowardsPlayer(float deltaTime, float targetX, float targetY, Pathfinder pathfinder, GridManager gridManager) {
         // Ticks down the recalculation timer
         PATH_TIMER -= deltaTime;
 
@@ -161,11 +190,11 @@ public abstract class Enemy {
                 currentPath.remove(0);
             } else {
                 // Otherwise, walk straight toward the node
-                moveTowardsPoint(deltaTime, nodeTargetX, nodeTargetY);
+                moveTowardsPoint(deltaTime, nodeTargetX, nodeTargetY, gridManager);
             }
         } else {
             // If no path exists just walk toward the player
-            moveTowardsPoint(deltaTime, targetX, targetY);
+            moveTowardsPoint(deltaTime, targetX, targetY, gridManager);
         }
     }
 

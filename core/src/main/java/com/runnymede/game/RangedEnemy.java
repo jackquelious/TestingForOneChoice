@@ -40,8 +40,8 @@ public class RangedEnemy extends Enemy{
     // Important method that handles enemy ai
     public void updateAi(float dt, float targetX, float targetY , float radius, GridManager gridManager, Pathfinder pathfinder, MainGame mainGame){
         // Gets the position of the enemy
-        float centerX = getXPos();
-        float centerY = getYPos();
+        float centerX = getCenterXPos();
+        float centerY = getCenterYPos();
 
         // Makes a switch that does different things depending on state
         switch (state){
@@ -51,12 +51,12 @@ public class RangedEnemy extends Enemy{
                 if(getDistanceToPoint(centerX, centerY, targetX, targetY) >= shootRange){
                     // if there are no walls nearby use direct tracking logic
                     if (!areWallsNearby(centerX, centerY, radius, gridManager)) {
-                        moveTowardsPoint(dt, targetX, targetY); // Direct tracking logic
+                        moveTowardsPoint(dt, targetX, targetY, gridManager); // Direct tracking logic
                         if (getCurrentPath() != null) getCurrentPath().clear(); // clears the current path
 
                     } else {
                         // Otherwise use the navigation method
-                        navigateTowardsPlayer(dt, targetX, targetY, pathfinder);
+                        navigateTowardsPlayer(dt, targetX, targetY, pathfinder, gridManager);
                     }
                 } else {
                     // Switch to attacking phase
@@ -94,9 +94,9 @@ public class RangedEnemy extends Enemy{
 
                     // Retreats away from playerww
                     if (!areWallsNearby(centerX, centerY, radius, gridManager)) {
-                        moveTowardsPoint(dt, retreatX, retreatY);
+                        moveTowardsPoint(dt, retreatX, retreatY, gridManager);
                         if (getCurrentPath() != null) getCurrentPath().clear();
-                    } else {navigateTowardsPlayer(dt, retreatX, retreatY, pathfinder);}
+                    } else {navigateTowardsPlayer(dt, retreatX, retreatY, pathfinder, gridManager);}
                 }
                 break;
                 }

@@ -42,9 +42,20 @@ public class MainGame implements ApplicationListener{
     private static final float RANGED_BASE_RETREAT_TIME = 1.5f;
     private static final float RANGED_BASE_ATTACK_TIME = 0.8f;
 
+    // SENTRY CONSTANTS
+    private static final float SENTRY_BASE_DAMAGE = 1.0f;
+    private static final float SENTRY_BASE_HEALTH = 3.0f;
+    private static final float SENTRY_COOLDOWN_TIME = 1.2f;
+    private static final float SENTRY_FIRE_TIME = 3.5f;
+    private static final float SENTRY_LASER_DURATION = 0.3f;
+
+
+
     // Tetures
     Texture bulletTexture;
     Texture enemyTexture;
+    Texture sentryTexture;
+    Texture laserTexture;
 
 
     private SpriteBatch spriteBatch;
@@ -85,6 +96,8 @@ public class MainGame implements ApplicationListener{
         wallTexture = new Texture("wallTexture.jpg");
         enemyTexture = new Texture("enemySquare.png");
         bulletTexture = new Texture("bullet.png");
+        sentryTexture = new Texture("sentrySquare.png");
+        laserTexture = new Texture("laserTexture.png");
 
 
         // Creates the room boundaries
@@ -204,7 +217,7 @@ public class MainGame implements ApplicationListener{
         float tileSize = gridManager.getTileSize();
 
         // Determine population scale based on room difficulty/type
-        int enemyCount = (room.type == Room.RoomType.BOSS) ? 1 : rand.nextInt(3, 6);
+        int enemyCount = rand.nextInt(3, 6);
 
         int spawned = 0;
         int safetyAttempts = 0;
@@ -229,9 +242,15 @@ public class MainGame implements ApplicationListener{
                     enemies.add(new RangedEnemy(worldX, worldY, RANGED_BASE_SPEED, 50f, 10f,
                         enemyTexture, 3.5f, 1.5f, 1.5f, 5f, 0.2f, bulletTexture));
                 } else {
-                    // Spawn normal kiting grunts
-                    enemies.add(new RangedEnemy(worldX, worldY, RANGED_BASE_SPEED, 20f, 5f,
-                        enemyTexture, 3.5f, 1.5f, 1.5f, 5f, 0.2f, bulletTexture));
+                    int spawnRoll = rand.nextInt(0, 100);
+                    if(spawnRoll < 30) {
+                        enemies.add(new SentryEnemy(worldX, worldY,SENTRY_BASE_HEALTH, SENTRY_BASE_DAMAGE, SENTRY_FIRE_TIME,
+                            SENTRY_COOLDOWN_TIME, SENTRY_LASER_DURATION, sentryTexture, laserTexture));
+                    } else {
+                        // Spawn normal kiting grunts
+                        enemies.add(new RangedEnemy(worldX, worldY, RANGED_BASE_SPEED, RANGED_BASE_HEALTH * difficultyScale, RANGED_BASE_DAMAGE * difficultyScale,
+                            enemyTexture, 3.5f, 1.5f, 1.5f, 5f, 0.2f, bulletTexture));
+                    }
                 }
                 spawned++;
             }
@@ -528,7 +547,8 @@ public class MainGame implements ApplicationListener{
         }
     }
 
-    // Methods that update the private methods so other classes can edit them
+    // Methods that update the private objects so other classes can edit them
+    public Player getPlayer() {return player;}
     public void addProjectile(Projectile p){projectiles.add(p);}
     public void removeProjectile(Projectile p){projectiles.remove(p);}
     public void addUpgrade(Upgrade up){upgrades.add(up);}
