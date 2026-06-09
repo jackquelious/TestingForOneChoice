@@ -49,6 +49,16 @@ public class MainGame implements ApplicationListener{
     private static final float SENTRY_FIRE_TIME = 3.5f;
     private static final float SENTRY_LASER_DURATION = 0.3f;
 
+    // Drone Constants
+    private static final float DRONE_BASE_DAMAGE = 1.0f;
+    private static final float DRONE_BASE_HEALTH = 3.0f;
+    private static final float DRONE_BASE_SPEED = 0.8f;
+    private static final float DRONE_FLEE_TIME = 1.2f;
+    private static final float DRONE_TRACKING_TIME = 2.8f;
+    private static final float DRONE_LOCKING_TIME = 0.6f;
+    private static final float DRONE_EXPLOSION_TIME = 0.8f;
+    private static final float DRONE_EXPLOSION_RADIUS = 0.8f;
+
 
 
     // Tetures
@@ -56,6 +66,9 @@ public class MainGame implements ApplicationListener{
     Texture enemyTexture;
     Texture sentryTexture;
     Texture laserTexture;
+    Texture droneTexture;
+    Texture crosshairTexture;
+    Texture explosionTexture;
 
 
     private SpriteBatch spriteBatch;
@@ -98,6 +111,10 @@ public class MainGame implements ApplicationListener{
         bulletTexture = new Texture("bullet.png");
         sentryTexture = new Texture("sentrySquare.png");
         laserTexture = new Texture("laserTexture.png");
+        droneTexture = new Texture("droneTexture.png");
+        crosshairTexture = new Texture("crosshairTexture.png");
+        explosionTexture = new Texture("explosionTexture.jpg");
+
 
 
         // Creates the room boundaries
@@ -202,12 +219,13 @@ public class MainGame implements ApplicationListener{
         ScreenUtils.clear(0, 0, 0, 1); // Clears the screen before each frame
         spriteBatch.begin(); // Starts the sprite batch
 
-        player.draw(spriteBatch); // draws player
-        drawEnemies(); // draws enemies
-        drawDungeonMap(); // Draws the dungeon
-        drawProjectiles(); // draws projectiles
-        drawUpgrades(); // draws upgrades
-        drawDamageTexts(); // draws damageTexts
+        // THE CORRECT DRAW ORDER:
+        drawDungeonMap();     // 1. Draw the floor and walls FIRST
+        drawUpgrades();       // 2. Draw items sitting on the floor
+        drawEnemies();        // 3. Draw enemies (and their crosshairs)
+        player.draw(spriteBatch); // 4. Draw the player
+        drawProjectiles();    // 5. Draw flying bullets over everything
+        drawDamageTexts();    // 6. Draw floating UI text on the very top
 
         spriteBatch.end(); // ends sprite batch
     }
@@ -246,7 +264,12 @@ public class MainGame implements ApplicationListener{
                     if(spawnRoll < 30) {
                         enemies.add(new SentryEnemy(worldX, worldY,SENTRY_BASE_HEALTH, SENTRY_BASE_DAMAGE, SENTRY_FIRE_TIME,
                             SENTRY_COOLDOWN_TIME, SENTRY_LASER_DURATION, sentryTexture, laserTexture));
-                    } else {
+                    } else if(spawnRoll < 80){
+                        enemies.add(new DroneEnemy(worldX, worldY, DRONE_BASE_SPEED, DRONE_BASE_HEALTH,
+                            DRONE_BASE_DAMAGE, droneTexture, crosshairTexture, explosionTexture,
+                            DRONE_FLEE_TIME, DRONE_TRACKING_TIME, DRONE_LOCKING_TIME, DRONE_EXPLOSION_RADIUS));
+                    }
+                    else {
                         // Spawn normal kiting grunts
                         enemies.add(new RangedEnemy(worldX, worldY, RANGED_BASE_SPEED, RANGED_BASE_HEALTH * difficultyScale, RANGED_BASE_DAMAGE * difficultyScale,
                             enemyTexture, 3.5f, 1.5f, 1.5f, 5f, 0.2f, bulletTexture));
