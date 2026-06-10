@@ -152,6 +152,26 @@ public class Player {
         else health = maxHealth;
     }
 
+    public void resetStats(float baseSpeed, int baseHealth) {
+        this.speed = baseSpeed;
+        this.maxHealth = baseHealth;
+        this.health = baseHealth;
+
+        // Reset weapon/bullet attributes back to defaults
+        this.damage = 1;       // Or your game's default player base damage
+        this.bulletSize = 0.2f;   // Matches RANGED_BASE_BULLET_SIZE
+        this.bulletSpeed = 4.5f;  // Matches RANGED_BASE_BULLET_SPEED
+        this.bulletBounces = 0;
+        this.critChance = 0.05f;  // 5% default base
+        this.lifeSteal = 0.0f;
+        this.pierce = 1;
+
+        // Reset permanent/unlocked system traits if needed
+        this.hasDash = false;
+        this.hasUpgradedDash = false;
+        this.hasShield = false;
+        this.shieldActive = false;
+    }
 
 
     /**

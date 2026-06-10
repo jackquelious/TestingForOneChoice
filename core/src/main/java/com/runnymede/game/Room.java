@@ -24,8 +24,9 @@ public class Room {
         START, NORMAL, BOSS, PORTAL
     }
 
+    // ENHANCED: State machine includes waiting step for items to clear
     public enum RoomState {
-        UNVISITED, LOCKED, CLEARED
+        UNVISITED, LOCKED, WAITING_FOR_REWARDS, CLEARED
     }
 
     public Room(int x, int y, int width, int height, RoomType type) {
@@ -115,7 +116,19 @@ public class Room {
         this.triggerBox = new Rectangle(boxX, boxY, boxWidth, boxHeight);
     }
 
-
+    /**
+     * FIX: Checks if the player's bounding box is physically overlapping any door thresholds.
+     */
+    public boolean isPlayerCollidingWithDoors(Rectangle playerHitBox, float tileSize) {
+        Rectangle doorRect = new Rectangle();
+        for (GridPoint2 door : doors) {
+            doorRect.set(door.x * tileSize, door.y * tileSize, tileSize, tileSize);
+            if (playerHitBox.overlaps(doorRect)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     // Getters and Setters for state integration
     public RoomState getState() { return state; }

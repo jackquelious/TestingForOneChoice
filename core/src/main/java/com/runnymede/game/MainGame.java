@@ -75,7 +75,6 @@ public class MainGame implements ApplicationListener {
     Texture explosionTexture;
     Texture portalTexture;
 
-    // Controls game state (FIX: Added GAME_OVER state)
     public enum GameState {PLAYING, UPGRADE_MENU, GAME_OVER}
     private GameState gameState = GameState.PLAYING;
 
@@ -105,7 +104,6 @@ public class MainGame implements ApplicationListener {
     private float difficultyScale;
     private float difficultyTimer;
 
-    // Tracking spawn anchoring metrics for clean system reloads
     private int[][] originalLayout;
     private DungeonGenerator currentGenerator;
 
@@ -160,9 +158,6 @@ public class MainGame implements ApplicationListener {
         buildFloorLayout();
     }
 
-    /**
-     * Helper to group dungeon setup logic so it can be re-called easily upon restart.
-     */
     private void buildFloorLayout() {
         rooms.clear();
         portal = null;
@@ -205,7 +200,7 @@ public class MainGame implements ApplicationListener {
         } else if (gameState == GameState.UPGRADE_MENU) {
             doUpgradeMenuInput();
         } else if (gameState == GameState.GAME_OVER) {
-            doGameOverInput(); // FIX: Redirect inputs to clean layout reloads
+            doGameOverInput();
         }
 
         draw();
@@ -239,7 +234,6 @@ public class MainGame implements ApplicationListener {
         updateCamera();
         handleDifficultyScaling(deltaTime);
 
-        // FIX: Trap execution frame early if health drops below zero
         if (!player.isAlive()) {
             gameState = GameState.GAME_OVER;
         }
@@ -267,7 +261,7 @@ public class MainGame implements ApplicationListener {
         if (gameState == GameState.UPGRADE_MENU) {
             drawUpgradeMenu();
         } else if (gameState == GameState.GAME_OVER) {
-            drawGameOverMenu(); // FIX: Draw Game Over Screen overlay
+            drawGameOverMenu();
         }
 
         spriteBatch.end();
@@ -322,7 +316,6 @@ public class MainGame implements ApplicationListener {
     public void updateProjectiles(float deltaTime) {
         Random rand = new Random();
 
-        // FIX: Standardized cleaner step-down to prevent clearing out concurrent arrays via index references
         for (int i = projectiles.size() - 1; i >= 0; i--) {
             Projectile currentProjectile = projectiles.get(i);
             Rectangle projectileHitbox = currentProjectile.getHitBox();
@@ -360,15 +353,13 @@ public class MainGame implements ApplicationListener {
 
                     if (!currentEnemy.isAlive()) {
                         enemies.remove(currentEnemy);
-                        rollUpgradeSpawn(enemyX, enemyY);
+                        // REMOVED: Individual item spawn logic handled on clear frame
                     }
                 }
             } else {
-                // ENEMY PROJECTILE VS PLAYER
                 if (!player.hasUpgradedDash || !player.isDashing()) {
                     if (player.getHitBox().overlaps(currentProjectile.getHitBox())) {
 
-                        // FIX: Only spawn floating numbers IF damage successfully punctures shield matrices
                         if (player.takeDamage(currentProjectile.getDamage())) {
                             DamageText text = new DamageText(currentProjectile.getDamage(), false, false, player.getX(), player.getY());
                             damageTexts.add(text);
@@ -381,7 +372,6 @@ public class MainGame implements ApplicationListener {
                 }
             }
 
-            // FIX: Removed the toxic 'break;' statement that was skipping other projectiles!
             if (!currentProjectile.getActive()) {
                 projectiles.remove(i);
             }
@@ -491,31 +481,49 @@ public class MainGame implements ApplicationListener {
         }
     }
 
-    // FIX: Process Game Over Input
     private void doGameOverInput() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
             restartMatch();
         }
     }
 
-    public void rollUpgradeSpawn(float spawnX, float spawnY){
-        Random rand = new Random();
-        if (rand.nextDouble() <= 1){
-            Upgrade newUpgrade = new Upgrade(spawnX, spawnY, 5f);
-            upgrades.add(newUpgrade);
-        }
+    // Spawns two items side-by-side in the center of the room with a 20-second lifespan
+    private void spawnRoomRewards(Room room) {
+        float tileSize = gridManager.getTileSize();
+        float centerWorldX = (room.getCenterX() * tileSize) + (tileSize / 2f);
+        float centerWorldY = (room.getCenterY() * tileSize) + (tileSize / 2f);
+
+        upgrades.add(new Upgrade(centerWorldX - 0.4f, centerWorldY, 20f));
+        upgrades.add(new Upgrade(centerWorldX + 0.4f, centerWorldY, 20f));
     }
 
+    // Checks how many upgrades are currently active inside the room geometry
+    private int getActiveUpgradesInRoom(Room room) {
+        float tileSize = gridManager.getTileSize();
+        int count = 0;
+        for (Upgrade u : upgrades) {
+            int tileX = (int)(u.getCenterXPos() / tileSize);
+            int tileY = (int)(u.getCenterYPos() / tileSize);
+            if (tileX >= room.x && tileX < (room.x + room.width) &&
+                tileY >= room.y && tileY < (room.y + room.height) &&
+                !u.getType().equals("none")) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // REFACTORED: Safe index-driven clearing to prevent concurrent loop crashes
     public void doUpgrade(float deltaTime){
         for (int i = upgrades.size() - 1; i >= 0; i--){
             Upgrade u = upgrades.get(i);
             if (u.tick(deltaTime)){
-                upgrades.remove(u);
-                return;
+                upgrades.remove(i);
+                continue;
             }
             if (player.getHitBox().overlaps(u.getHitBox())){
                 u.collect(player);
-                upgrades.remove(u);
+                upgrades.remove(i);
             }
         }
     }
@@ -541,15 +549,26 @@ public class MainGame implements ApplicationListener {
             if (currentRoom.type == Room.RoomType.START) {
                 currentRoom.setState(Room.RoomState.CLEARED);
             } else {
-                if (player.getHitBox().overlaps(currentRoom.getTriggerBox())) {
+                // FIXED SAFETY LOCK: Only snaps closed if player is inside trigger box AND clear of doorway bounds
+                if (player.getHitBox().overlaps(currentRoom.getTriggerBox()) &&
+                    !currentRoom.isPlayerCollidingWithDoors(player.getHitBox(), gridManager.getTileSize())) {
                     currentRoom.lockDoors(gridManager);
                     spawnEnemiesForRoom(currentRoom);
                 }
             }
         }
 
+        // Transition from locked state to reward collection state once cleared
         if (currentRoom.getState() == Room.RoomState.LOCKED && enemies.isEmpty()) {
-            currentRoom.unlockDoors(gridManager);
+            currentRoom.setState(Room.RoomState.WAITING_FOR_REWARDS);
+            spawnRoomRewards(currentRoom);
+        }
+
+        // Only unlocks doors when both dropped upgrades disappear or get collected
+        if (currentRoom.getState() == Room.RoomState.WAITING_FOR_REWARDS) {
+            if (getActiveUpgradesInRoom(currentRoom) == 0) {
+                currentRoom.unlockDoors(gridManager);
+            }
         }
     }
 
@@ -571,7 +590,6 @@ public class MainGame implements ApplicationListener {
         System.out.println("Floor Cleared! Entering the next level...");
     }
 
-    // FIX: Wipes and restarts the structural game cycle cleanly
     private void restartMatch() {
         System.out.println("Reviving player and rebuilding current floor layout...");
 
@@ -580,10 +598,9 @@ public class MainGame implements ApplicationListener {
         damageTexts.clear();
         enemies.clear();
 
-        player.setHealth(player.getMaxHealth());
-        if (player.hasShield) {
-            player.shieldActive = true;
-        }
+
+
+        player.resetStats(PLAYER_BASE_SPEED, PLAYER_BASE_HEALTH);
 
         buildFloorLayout();
         gameState = GameState.PLAYING;
@@ -640,7 +657,6 @@ public class MainGame implements ApplicationListener {
         menuFont.draw(spriteBatch, "3: " + currentChoices[2].name(), player.getCenterX() - 2f, player.getCenterY() - 1.5f);
     }
 
-    // FIX: Renders clean layout prompt text overlaying center stage camera position metrics
     private void drawGameOverMenu() {
         menuFont.draw(spriteBatch, "GAME OVER", player.getCenterX() - 0.8f, player.getCenterY() + 0.8f);
         menuFont.draw(spriteBatch, "Press 'R' to Restart from This Floor Layout", player.getCenterX() - 2.6f, player.getCenterY() - 0.2f);
