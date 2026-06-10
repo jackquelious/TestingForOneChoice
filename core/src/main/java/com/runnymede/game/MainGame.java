@@ -12,11 +12,17 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.*;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
-public class MainGame implements ApplicationListener{
+public class MainGame implements ApplicationListener {
     /// CONSTANTS:
     private static final float CRIT_MULTIPLIER = 2.5f;
 
-    private static final float PLAYER_SPEED = 2.1f;
+    //Player constants
+    private static final float PLAYER_BASE_SPEED = 2.1f;
+    private static final int PLAYER_BASE_HEALTH = 5;
+    private static final float PLAYER_DASH_DURACTION = 0.18f;
+    private static final float PLAYER_DASH_COOLDOWN = 1.2f;
+    private static final float PLAYER_DASH_SPEED_MULTIPLIER = 3.5f;
+
     private static final float PERIODIC_DIFF_INCREMENT = 0.03f;
     private static final float LEVEL_UP_DIFF_MULT = 1.2f;
     private static final float DIFF_TIMER_REFRESH = 0.8f;
@@ -55,13 +61,11 @@ public class MainGame implements ApplicationListener{
     private static final float DRONE_BASE_SPEED = 0.8f;
     private static final float DRONE_FLEE_TIME = 1.2f;
     private static final float DRONE_TRACKING_TIME = 2.8f;
-    private static final float DRONE_LOCKING_TIME = 0.6f;
+    private static final float DRONE_LOCKING_TIME = 0.8f;
     private static final float DRONE_EXPLOSION_TIME = 0.8f;
     private static final float DRONE_EXPLOSION_RADIUS = 0.8f;
 
-
-
-    // Tetures
+    // Textures
     Texture bulletTexture;
     Texture enemyTexture;
     Texture sentryTexture;
@@ -69,7 +73,11 @@ public class MainGame implements ApplicationListener{
     Texture droneTexture;
     Texture crosshairTexture;
     Texture explosionTexture;
+    Texture portalTexture;
 
+    // Controls game state (FIX: Added GAME_OVER state)
+    public enum GameState {PLAYING, UPGRADE_MENU, GAME_OVER}
+    private GameState gameState = GameState.PLAYING;
 
     private SpriteBatch spriteBatch;
     private Viewport viewport;
@@ -78,7 +86,7 @@ public class MainGame implements ApplicationListener{
     private Texture wallTexture;
 
     private BitmapFont font;
-
+    private BitmapFont menuFont;
 
     private float timer;
     private float deltaTime;
@@ -86,6 +94,7 @@ public class MainGame implements ApplicationListener{
     private GridManager gridManager;
     private Pathfinder pathfinder;
     private Room currentRoom;
+    private Portal portal;
     private ArrayList<Room> rooms;
 
     private ArrayList<Enemy> enemies;
@@ -93,19 +102,25 @@ public class MainGame implements ApplicationListener{
     private ArrayList<Projectile> projectiles;
     private ArrayList<Upgrade> upgrades;
 
-    private float difficultyTimer;
     private float difficultyScale;
+    private float difficultyTimer;
+
+    // Tracking spawn anchoring metrics for clean system reloads
+    private int[][] originalLayout;
+    private DungeonGenerator currentGenerator;
+
+    public enum LoopUpgrade { LIFESTEAL, DASH, UPGRADED_DASH, SHIELD, BOUNCES }
+    private LoopUpgrade[] currentChoices = new LoopUpgrade[3];
 
     public void create() {
         spriteBatch = new SpriteBatch();
         enemies = new ArrayList<Enemy>();
-        timer = 0.2f; // for enemy spawns
-        player = new Player(10.0f, 10.0f, PLAYER_SPEED, 3);
+        timer = 0.2f;
+        player = new Player(10.0f, 10.0f, PLAYER_BASE_SPEED, PLAYER_BASE_HEALTH, PLAYER_DASH_DURACTION, PLAYER_DASH_COOLDOWN, PLAYER_DASH_SPEED_MULTIPLIER);
         viewport = new FitViewport(8, 5);
 
         walls = new ArrayList<Rectangle>();
 
-        //Initalizes the textures
         wallTexture = new Texture("wallTexture.jpg");
         enemyTexture = new Texture("enemySquare.png");
         bulletTexture = new Texture("bullet.png");
@@ -114,56 +129,66 @@ public class MainGame implements ApplicationListener{
         droneTexture = new Texture("droneTexture.png");
         crosshairTexture = new Texture("crosshairTexture.png");
         explosionTexture = new Texture("explosionTexture.jpg");
+        portalTexture = new Texture("portalTexture.png");
 
+        walls.add(new Rectangle(0, 0, 20, 0.5f));
+        walls.add(new Rectangle(0, 19.5f, 20, 0.5f));
+        walls.add(new Rectangle(0, 0, 0.5f, 20));
+        walls.add(new Rectangle(19.5f, 0, 0.5f, 20));
 
-
-        // Creates the room boundaries
-        walls.add(new Rectangle(0, 0, 20, 0.5f));       // Bottom Wall
-        walls.add(new Rectangle(0, 19.5f, 20, 0.5f));   // Top Wall
-        walls.add(new Rectangle(0, 0, 0.5f, 20));       // Left Wall
-        walls.add(new Rectangle(19.5f, 0, 0.5f, 20));   // Right Wall
-
-        // The pillars
         walls.add(new Rectangle(3, 2, 1, 1));
         walls.add(new Rectangle(15, 3, 1, 1));
         walls.add(new Rectangle(17, 12, 1, 1));
 
-        // Initializes the lists of game objects
         projectiles = new ArrayList<Projectile>();
         upgrades = new ArrayList<Upgrade>();
         damageTexts = new ArrayList<DamageText>();
         rooms = new ArrayList<Room>();
 
-        // Set up the font to work in world units
         font = new BitmapFont();
         font.setUseIntegerPositions(false);
+
+        menuFont = new BitmapFont();
+        menuFont.setUseIntegerPositions(false);
+        menuFont.getRegion().getTexture().setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+        menuFont.getData().setScale(0.024f);
+        menuFont.setColor(com.badlogic.gdx.graphics.Color.WHITE);
 
         difficultyScale = 1.0f;
         difficultyTimer = DIFF_TIMER_REFRESH;
 
-        // Initializes the generator and creates a clean, structured dungeon layout
-        DungeonGenerator generator = new DungeonGenerator(60, 60);
-        int[][] freshLayout = generator.generateFloor(); // This single call handles everything!
+        buildFloorLayout();
+    }
 
-        // Your GridManager instantly maps pathfinding nodes straight to the layout floors!
-        gridManager = new GridManager(freshLayout);
+    /**
+     * Helper to group dungeon setup logic so it can be re-called easily upon restart.
+     */
+    private void buildFloorLayout() {
+        rooms.clear();
+        portal = null;
+
+        currentGenerator = new DungeonGenerator(60, 60);
+        originalLayout = currentGenerator.generateFloor();
+
+        gridManager = new GridManager(originalLayout);
         pathfinder = new Pathfinder(gridManager);
 
-        for(Room r : generator.getPlacedRooms()){
-            r.findDoors(freshLayout);
+        for (Room r : currentGenerator.getPlacedRooms()) {
+            r.findDoors(originalLayout);
             r.createTriggerBox(gridManager.getTileSize());
             rooms.add(r);
-        } // Finds each door and adds it to the list
 
-        Room start = generator.getStartRoom(); // Drops your player perfectly in the middle of safety
-        currentRoom = start; // Initializes the current room
+            if (r.type == Room.RoomType.PORTAL) {
+                float portalX = r.getCenterX() * gridManager.getTileSize();
+                float portalY = r.getCenterY() * gridManager.getTileSize();
+                portal = new Portal(portalX, portalY, portalTexture);
+            }
+        }
 
+        Room start = currentGenerator.getStartRoom();
+        currentRoom = start;
         float tileScale = gridManager.getTileSize();
-
-        // Scale the grid coordinates up to matching world positioning coordinates
-        float spawnX = start.getCenterX() * tileScale;
-        float spawnY = start.getCenterY() * tileScale;
-        player.setPosition(spawnX, spawnY);
+        player.setPosition(start.getCenterX() * tileScale, start.getCenterY() * tileScale);
     }
 
     @Override
@@ -171,36 +196,40 @@ public class MainGame implements ApplicationListener{
         viewport.update(width, height, true);
     }
 
-    // Main method that runs periodically
     public void render() {
         float deltaTime = Gdx.graphics.getDeltaTime();
-        input(deltaTime);
-        logic(deltaTime);
+
+        if (gameState == GameState.PLAYING) {
+            input(deltaTime);
+            logic(deltaTime);
+        } else if (gameState == GameState.UPGRADE_MENU) {
+            doUpgradeMenuInput();
+        } else if (gameState == GameState.GAME_OVER) {
+            doGameOverInput(); // FIX: Redirect inputs to clean layout reloads
+        }
+
         draw();
     }
 
-
-    public void pause() {
-    }
-
-    public void resume() {
-    }
+    public void pause() {}
+    public void resume() {}
 
     public void dispose() {
         spriteBatch.dispose();
         font.dispose();
+        menuFont.dispose();
     }
 
-    public void input(float deltaTime){
+    public void input(float deltaTime) {
         doPlayerMovement(deltaTime, gridManager);
         doProjectileInput();
+        doPortalInput();
     }
 
-
-
-    public void logic(float deltaTime){
+    public void logic(float deltaTime) {
         float playerXPos = player.getCenterX();
         float playerYPos = player.getCenterY();
+
         updatePlayerCurrentRoom(rooms);
         updateProjectiles(deltaTime);
         updateDamageTexts(deltaTime);
@@ -210,67 +239,71 @@ public class MainGame implements ApplicationListener{
         updateCamera();
         handleDifficultyScaling(deltaTime);
 
+        // FIX: Trap execution frame early if health drops below zero
+        if (!player.isAlive()) {
+            gameState = GameState.GAME_OVER;
+        }
     }
 
-    public void draw(){
+    public void draw() {
         viewport.apply();
         spriteBatch.setProjectionMatrix(viewport.getCamera().combined);
 
-        ScreenUtils.clear(0, 0, 0, 1); // Clears the screen before each frame
-        spriteBatch.begin(); // Starts the sprite batch
+        ScreenUtils.clear(0, 0, 0, 1);
+        spriteBatch.begin();
 
-        // THE CORRECT DRAW ORDER:
-        drawDungeonMap();     // 1. Draw the floor and walls FIRST
-        drawUpgrades();       // 2. Draw items sitting on the floor
-        drawEnemies();        // 3. Draw enemies (and their crosshairs)
-        player.draw(spriteBatch); // 4. Draw the player
-        drawProjectiles();    // 5. Draw flying bullets over everything
-        drawDamageTexts();    // 6. Draw floating UI text on the very top
+        drawDungeonMap();
+        drawUpgrades();
+        drawEnemies();
+        drawPortal();
 
-        spriteBatch.end(); // ends sprite batch
+        if (player.isAlive()) {
+            player.draw(spriteBatch);
+        }
+
+        drawProjectiles();
+        drawDamageTexts();
+
+        if (gameState == GameState.UPGRADE_MENU) {
+            drawUpgradeMenu();
+        } else if (gameState == GameState.GAME_OVER) {
+            drawGameOverMenu(); // FIX: Draw Game Over Screen overlay
+        }
+
+        spriteBatch.end();
     }
 
     private void spawnEnemiesForRoom(Room room) {
         java.util.Random rand = new java.util.Random();
         float tileSize = gridManager.getTileSize();
 
-        // Determine population scale based on room difficulty/type
         int enemyCount = rand.nextInt(3, 6);
-
         int spawned = 0;
         int safetyAttempts = 0;
 
-        // Keep trying until we successfully place our quota, or hit a safety limit
         while (spawned < enemyCount && safetyAttempts < 50) {
             safetyAttempts++;
 
-            // Pick a random tile coordinate inside the inner floor space (avoiding the outer walls)
             int randomTileX = rand.nextInt(room.x + 1, room.x + room.width - 1);
             int randomTileY = rand.nextInt(room.y + 1, room.y + room.height - 1);
 
-            // Verify the selected node isn't a central obstacle pillar
             if (gridManager.getGrid()[randomTileX][randomTileY].isWalkable) {
-                // Convert tile indices back into world floats centered on the tile
                 float worldX = (randomTileX * tileSize) + (tileSize / 2f);
                 float worldY = (randomTileY * tileSize) + (tileSize / 2f);
 
                 if (room.type == Room.RoomType.BOSS) {
-                    // Future home of our Ultrakill Virtue!
-                    // For now, let's spawn a super-powered Ranged Enemy as a placeholder
                     enemies.add(new RangedEnemy(worldX, worldY, RANGED_BASE_SPEED, 50f, 10f,
                         enemyTexture, 3.5f, 1.5f, 1.5f, 5f, 0.2f, bulletTexture));
                 } else {
                     int spawnRoll = rand.nextInt(0, 100);
-                    if(spawnRoll < 30) {
-                        enemies.add(new SentryEnemy(worldX, worldY,SENTRY_BASE_HEALTH, SENTRY_BASE_DAMAGE, SENTRY_FIRE_TIME,
+                    if (spawnRoll < 30) {
+                        enemies.add(new SentryEnemy(worldX, worldY, SENTRY_BASE_HEALTH, SENTRY_BASE_DAMAGE, SENTRY_FIRE_TIME,
                             SENTRY_COOLDOWN_TIME, SENTRY_LASER_DURATION, sentryTexture, laserTexture));
-                    } else if(spawnRoll < 80){
+                    } else if (spawnRoll < 80) {
                         enemies.add(new DroneEnemy(worldX, worldY, DRONE_BASE_SPEED, DRONE_BASE_HEALTH,
                             DRONE_BASE_DAMAGE, droneTexture, crosshairTexture, explosionTexture,
                             DRONE_FLEE_TIME, DRONE_TRACKING_TIME, DRONE_LOCKING_TIME, DRONE_EXPLOSION_RADIUS));
-                    }
-                    else {
-                        // Spawn normal kiting grunts
+                    } else {
                         enemies.add(new RangedEnemy(worldX, worldY, RANGED_BASE_SPEED, RANGED_BASE_HEALTH * difficultyScale, RANGED_BASE_DAMAGE * difficultyScale,
                             enemyTexture, 3.5f, 1.5f, 1.5f, 5f, 0.2f, bulletTexture));
                     }
@@ -280,225 +313,223 @@ public class MainGame implements ApplicationListener{
         }
     }
 
-    // This method moves the enemies toward the player
-    public void updateAllEnemies(float dt, float playerX, float playerY){
-        // Iterates through every enemy
-        for(Enemy e : enemies){
+    public void updateAllEnemies(float dt, float playerX, float playerY) {
+        for (Enemy e : enemies) {
             e.updateAi(dt, playerX, playerY, ENEMY_BEHAVIOUR_RADIUS, gridManager, pathfinder, this);
         }
     }
 
-    // Updates all projectiles, handles collisions, and spawns damage texts
-    public void updateProjectiles(float deltaTime){
-        Random rand = new Random(); // Creates new Random object
+    public void updateProjectiles(float deltaTime) {
+        Random rand = new Random();
 
-        // Iterates through every projectile
+        // FIX: Standardized cleaner step-down to prevent clearing out concurrent arrays via index references
         for (int i = projectiles.size() - 1; i >= 0; i--) {
-            // Gets the projectile and its hitbox
             Projectile currentProjectile = projectiles.get(i);
             Rectangle projectileHitbox = currentProjectile.getHitBox();
 
-            // Moves projectiles, then checks for wall collisions
             currentProjectile.update(deltaTime, gridManager);
 
-            // If the projectile is owned by player, detect enemy collisions
-            if(currentProjectile.getOwner()){
-                // Iterates through every enemy to check for collisions
+            if (currentProjectile.getOwner()) {
                 for (int j = enemies.size() - 1; j >= 0; j--) {
                     Enemy currentEnemy = enemies.get(j);
                     Rectangle curEnemyHitBox = currentEnemy.getHitBox();
 
-                    // Gets the position of the enemy that is used for upgrade and text spawning
                     float enemyX = currentEnemy.getCenterXPos();
                     float enemyY = currentEnemy.getCenterYPos();
 
-                    // Checks collision
                     if (projectileHitbox.overlaps(curEnemyHitBox)) {
-                        // 1. Calculate Damage
                         boolean isCrit = (rand.nextDouble() <= currentProjectile.getCritChance());
                         float damage = currentProjectile.getDamage() * (isCrit ? CRIT_MULTIPLIER : 1.0f);
 
-                        // Applies damage
                         currentEnemy.takeDamage(damage);
 
-                        // Spawns the damage text
-                        boolean isLethal = !currentEnemy.isAlive(); // Creates a new boolean that detects if the damage was lethal
+                        boolean isLethal = !currentEnemy.isAlive();
                         DamageText text = new DamageText(damage, isCrit, isLethal, enemyX, enemyY);
                         damageTexts.add(text);
 
-                        // Heals the player by calculated amount
                         float amtHealed = damage * currentProjectile.getLifeSteal();
                         player.heal(amtHealed);
 
-                        // Decreases bullet pierce by 1
                         currentProjectile.setPierce(currentProjectile.getPierce() - 1);
 
-                        // If the pierce reaches 0, despawn the projectile
                         if (currentProjectile.getPierce() <= 0) {
                             currentProjectile.setActive(false);
                             currentProjectile.setPosition(-55, 55);
                         }
                     }
 
-                    // Checks if enemy died during this collision
                     if (!currentEnemy.isAlive()) {
                         enemies.remove(currentEnemy);
                         rollUpgradeSpawn(enemyX, enemyY);
                     }
                 }
-            } else { // otherwise detect player collisions
-                if (player.getHitBox().overlaps(currentProjectile.getHitBox())) {
-                    player.takeDamage(currentProjectile.getDamage());
-                    currentProjectile.setPierce(0);
+            } else {
+                // ENEMY PROJECTILE VS PLAYER
+                if (!player.hasUpgradedDash || !player.isDashing()) {
+                    if (player.getHitBox().overlaps(currentProjectile.getHitBox())) {
 
-                    // Adds a damage text
-                    // FIXME: change lethal stuff after adding player death
-                    DamageText text = new DamageText(currentProjectile.getDamage(), false, false, player.getX(), player.getY());
-                    damageTexts.add(text);
+                        // FIX: Only spawn floating numbers IF damage successfully punctures shield matrices
+                        if (player.takeDamage(currentProjectile.getDamage())) {
+                            DamageText text = new DamageText(currentProjectile.getDamage(), false, false, player.getX(), player.getY());
+                            damageTexts.add(text);
+                        }
 
-                    // If the pierce reaches 0, despawn the projectile
-                    if (currentProjectile.getPierce() <= 0) {
+                        currentProjectile.setPierce(0);
                         currentProjectile.setActive(false);
                         currentProjectile.setPosition(-55, 55);
                     }
-
                 }
-
             }
 
-
-            // Checks if projectile was deactivated during this collision
+            // FIX: Removed the toxic 'break;' statement that was skipping other projectiles!
             if (!currentProjectile.getActive()) {
-                projectiles.remove(currentProjectile);
-                break;
+                projectiles.remove(i);
             }
-
         }
     }
 
-    public void updateDamageTexts(float deltaTime){
-        for(int i = damageTexts.size() - 1; i >= 0; i--){
+    private void generateUpgradeChoices() {
+        ArrayList<LoopUpgrade> pool = new ArrayList<>();
+        pool.add(LoopUpgrade.LIFESTEAL);
+        pool.add(LoopUpgrade.BOUNCES);
+        pool.add(LoopUpgrade.SHIELD);
+
+        if (player.hasDash) {
+            pool.add(LoopUpgrade.UPGRADED_DASH);
+        } else {
+            pool.add(LoopUpgrade.DASH);
+        }
+
+        java.util.Collections.shuffle(pool);
+        currentChoices[0] = pool.get(0);
+        currentChoices[1] = pool.get(1);
+        currentChoices[2] = pool.get(2);
+    }
+
+    public void updateDamageTexts(float deltaTime) {
+        for (int i = damageTexts.size() - 1; i >= 0; i--) {
             DamageText dt = damageTexts.get(i);
             dt.update(deltaTime);
-            if(!dt.getActive()){
+            if (!dt.getActive()) {
                 damageTexts.remove(i);
             }
         }
     }
 
-    public void handleDifficultyScaling(float deltaTime){
+    public void handleDifficultyScaling(float deltaTime) {
         difficultyTimer -= deltaTime;
-        if(difficultyTimer <= 0){
+        if (difficultyTimer <= 0) {
             difficultyScale += PERIODIC_DIFF_INCREMENT;
             difficultyTimer = DIFF_TIMER_REFRESH;
         }
     }
 
-    public void progressLevel(){
+    public void progressLevel() {
         difficultyScale *= LEVEL_UP_DIFF_MULT;
     }
 
+    public void doPlayerMovement(float deltaTime, GridManager gridManager) {
+        player.updateDashSystem(deltaTime, gridManager);
 
-    public void doPlayerMovement(float deltaTime, GridManager gridManager){
-        // Gets the old player cordinates
-        float playerX = player.getX();
-        float playerY = player.getY();
-
-
-        // Gets the number of keys pressed
         int numOfKeysPressed = 0;
         player.setSpeedMult(1);
-        if(Gdx.input.isKeyPressed(Input.Keys.W)) numOfKeysPressed += 1;
-        if(Gdx.input.isKeyPressed(Input.Keys.A)) numOfKeysPressed += 1;
-        if(Gdx.input.isKeyPressed(Input.Keys.S)) numOfKeysPressed += 1;
-        if(Gdx.input.isKeyPressed(Input.Keys.D)) numOfKeysPressed += 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) numOfKeysPressed += 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) numOfKeysPressed += 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) numOfKeysPressed += 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) numOfKeysPressed += 1;
 
-        // Slightly reduce speed so going diagonal isn't crazy fast
-        if(numOfKeysPressed > 1) player.setSpeedMult(0.85f);
+        if (numOfKeysPressed > 1) player.setSpeedMult(0.85f);
         else player.setSpeedMult(1.0f);
 
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) player.moveLeft(deltaTime, gridManager);
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) player.moveRight(deltaTime, gridManager);
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) player.moveUp(deltaTime, gridManager);
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) player.moveDown(deltaTime, gridManager);
 
-        // Doing x movement first so you can check for walls
-        if(Gdx.input.isKeyPressed(Input.Keys.A)) player.moveLeft(deltaTime, gridManager);
-        if(Gdx.input.isKeyPressed(Input.Keys.D)) player.moveRight(deltaTime, gridManager);
-
-        // Then doing Y to check for the y-axis walls
-        if(Gdx.input.isKeyPressed(Input.Keys.W)) player.moveUp(deltaTime, gridManager);
-        if(Gdx.input.isKeyPressed(Input.Keys.S)) player.moveDown(deltaTime, gridManager);
-
-        // Updates the hit box at the end
         player.setTotalHitBox(player.getX(), player.getY());
+        player.updateShieldSystem(deltaTime);
     }
 
-    public void doProjectileInput(){
-        // Triggers on left click
+    public void doProjectileInput() {
         if (com.badlogic.gdx.Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
-
-            // gets the x and y positions in a vector container
             com.badlogic.gdx.math.Vector3 mousePos = new com.badlogic.gdx.math.Vector3(
                 com.badlogic.gdx.Gdx.input.getX(), com.badlogic.gdx.Gdx.input.getY(), 0);
 
-            // converts the pixel inputs into game units (8x5)
             viewport.unproject(mousePos);
 
-            // Spawns the bullet at the middle of the player
             float spawnX = player.getCenterX();
             float spawnY = player.getCenterY();
 
-            // Creates new bullet object
             Projectile newBullet = new Projectile(true, player.getBulletSpeed(), player.getBulletSize(),
                 player.getCritChance(), player.getLifeSteal(), player.getDamage(), player.getPierce(),
-                player.getBulletBounces(),spawnX, spawnY, mousePos.x, mousePos.y, bulletTexture);
+                player.getBulletBounces(), spawnX, spawnY, mousePos.x, mousePos.y, bulletTexture);
 
-            // Adds it to the list
             projectiles.add(newBullet);
         }
     }
 
-    // On enemy death an upgrade has a chance to be spawned
+    public void doPortalInput() {
+        if (portal != null && player.getHitBox().overlaps(portal.getHitBox())) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
+                gameState = GameState.UPGRADE_MENU;
+                generateUpgradeChoices();
+                System.out.println("Portal Interacted! Game Paused for Upgrade Menu.");
+            }
+        }
+    }
+
+    public void doUpgradeMenuInput(){
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
+            player.applyUpgrade(currentChoices[0]);
+            advanceToNextFloor();
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
+            player.applyUpgrade(currentChoices[1]);
+            advanceToNextFloor();
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) {
+            player.applyUpgrade(currentChoices[2]);
+            advanceToNextFloor();
+        }
+    }
+
+    // FIX: Process Game Over Input
+    private void doGameOverInput() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+            restartMatch();
+        }
+    }
+
     public void rollUpgradeSpawn(float spawnX, float spawnY){
         Random rand = new Random();
-        if(rand.nextDouble() <= 1){
+        if (rand.nextDouble() <= 1){
             Upgrade newUpgrade = new Upgrade(spawnX, spawnY, 5f);
             upgrades.add(newUpgrade);
         }
-
     }
 
     public void doUpgrade(float deltaTime){
-        for(int i = upgrades.size() - 1; i >= 0; i--){
+        for (int i = upgrades.size() - 1; i >= 0; i--){
             Upgrade u = upgrades.get(i);
-            if(u.tick(deltaTime)){
+            if (u.tick(deltaTime)){
                 upgrades.remove(u);
                 return;
             }
-            if(player.getHitBox().overlaps(u.getHitBox())){
+            if (player.getHitBox().overlaps(u.getHitBox())){
                 u.collect(player);
                 upgrades.remove(u);
             }
         }
     }
 
-    /**
-     * Examines the player's current tile position and updates the active room reference.
-     * @param placedRooms The list of rooms generated by the DungeonGenerator.
-     */
     private void updatePlayerCurrentRoom(ArrayList<Room> placedRooms) {
-        // 1. Get the tile size from your grid manager
         float tileSize = gridManager.getTileSize();
-
-        // 2. Convert the player's center world coordinates into grid tile integers
         int playerTileX = (int) (player.getCenterX() / tileSize);
         int playerTileY = (int) (player.getCenterY() / tileSize);
 
-        // 3. Loop through your rooms to find a structural boundary match
         for (Room room : placedRooms) {
             if (playerTileX >= room.x && playerTileX < (room.x + room.width) &&
                 playerTileY >= room.y && playerTileY < (room.y + room.height)) {
-
-                // Player is inside this room!
                 currentRoom = room;
-                return; // Exit early once found
+                return;
             }
         }
     }
@@ -506,12 +537,10 @@ public class MainGame implements ApplicationListener{
     private void handleRoomStateLogic(){
         if (currentRoom == null) return;
 
-        // Trigger encounter if the player steps into the room's inner hitbox
         if (currentRoom.getState() == Room.RoomState.UNVISITED) {
             if (currentRoom.type == Room.RoomType.START) {
                 currentRoom.setState(Room.RoomState.CLEARED);
             } else {
-                // THE NEW FIX: Simple bounding box collision!
                 if (player.getHitBox().overlaps(currentRoom.getTriggerBox())) {
                     currentRoom.lockDoors(gridManager);
                     spawnEnemiesForRoom(currentRoom);
@@ -519,21 +548,50 @@ public class MainGame implements ApplicationListener{
             }
         }
 
-        // Check if a locked room has been cleared of all threats
         if (currentRoom.getState() == Room.RoomState.LOCKED && enemies.isEmpty()) {
             currentRoom.unlockDoors(gridManager);
         }
     }
-    // Updates the camera so it follows the player
+
     public void updateCamera(){
-        com.badlogic.gdx.graphics.Camera cam = viewport.getCamera(); // Gets camera object
-        cam.position.set(player.getCenterX(), player.getCenterY(), 0); // Moves the camera
-        cam.update(); // Updates cam math and logic
+        com.badlogic.gdx.graphics.Camera cam = viewport.getCamera();
+        cam.position.set(player.getCenterX(), player.getCenterY(), 0);
+        cam.update();
+    }
+
+    private void advanceToNextFloor() {
+        progressLevel();
+        projectiles.clear();
+        upgrades.clear();
+        damageTexts.clear();
+        enemies.clear();
+
+        buildFloorLayout();
+        gameState = GameState.PLAYING;
+        System.out.println("Floor Cleared! Entering the next level...");
+    }
+
+    // FIX: Wipes and restarts the structural game cycle cleanly
+    private void restartMatch() {
+        System.out.println("Reviving player and rebuilding current floor layout...");
+
+        projectiles.clear();
+        upgrades.clear();
+        damageTexts.clear();
+        enemies.clear();
+
+        player.setHealth(player.getMaxHealth());
+        if (player.hasShield) {
+            player.shieldActive = true;
+        }
+
+        buildFloorLayout();
+        gameState = GameState.PLAYING;
     }
 
     // DRAW METHODS:
     public void drawEnemies(){
-        for(Enemy e : enemies){
+        for (Enemy e : enemies){
             e.draw(spriteBatch);
         }
     }
@@ -542,10 +600,8 @@ public class MainGame implements ApplicationListener{
         Node[][] grid = gridManager.getGrid();
         float size = gridManager.getTileSize();
 
-        // Scan through the entire grid width and height to render tiles
         for (int x = 0; x < gridManager.getGridColumns(); x++) {
             for (int y = 0; y < gridManager.getGridRows(); y++) {
-                // If the pathfinder node is not walkable, draw a solid wall texture
                 if (!grid[x][y].isWalkable) {
                     spriteBatch.draw(wallTexture, x * size, y * size, size, size);
                 }
@@ -554,23 +610,42 @@ public class MainGame implements ApplicationListener{
     }
 
     public void drawProjectiles(){
-        for(Projectile p : projectiles){
+        for (Projectile p : projectiles){
             p.draw(spriteBatch);
         }
     }
 
     public void drawUpgrades(){
-        for(Upgrade up : upgrades){
+        for (Upgrade up : upgrades){
             up.draw(spriteBatch);
         }
     }
+
     public void drawDamageTexts() {
         for (DamageText dt : damageTexts) {
             dt.draw(spriteBatch, font);
         }
     }
 
-    // Methods that update the private objects so other classes can edit them
+    public void drawPortal() {
+        if (portal != null) {
+            portal.draw(spriteBatch);
+        }
+    }
+
+    public void drawUpgradeMenu(){
+        menuFont.draw(spriteBatch, "CHOOSE YOUR UPGRADE (Press 1, 2, or 3)", player.getCenterX() - 4.1f, player.getCenterY() + 2f);
+        menuFont.draw(spriteBatch, "1: " + currentChoices[0].name(), player.getCenterX() - 2f, player.getCenterY() + 0.5f);
+        menuFont.draw(spriteBatch, "2: " + currentChoices[1].name(), player.getCenterX() - 2f, player.getCenterY() - 0.5f);
+        menuFont.draw(spriteBatch, "3: " + currentChoices[2].name(), player.getCenterX() - 2f, player.getCenterY() - 1.5f);
+    }
+
+    // FIX: Renders clean layout prompt text overlaying center stage camera position metrics
+    private void drawGameOverMenu() {
+        menuFont.draw(spriteBatch, "GAME OVER", player.getCenterX() - 0.8f, player.getCenterY() + 0.8f);
+        menuFont.draw(spriteBatch, "Press 'R' to Restart from This Floor Layout", player.getCenterX() - 2.6f, player.getCenterY() - 0.2f);
+    }
+
     public Player getPlayer() {return player;}
     public void addProjectile(Projectile p){projectiles.add(p);}
     public void removeProjectile(Projectile p){projectiles.remove(p);}

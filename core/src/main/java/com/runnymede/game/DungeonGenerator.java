@@ -140,8 +140,8 @@ public class DungeonGenerator {
 
             // Validation check: only place a room if the chosen slot is empty
             if (roomGrid[currentGridX][currentGridY] == null) {
-                // If this is the last room needed, designate it as the Boss room
-                Room.RoomType type = (roomsPlaced == roomsToPlace - 1) ? Room.RoomType.BOSS : Room.RoomType.NORMAL;
+                // If this is the last room needed, designate it as the Portal room
+                Room.RoomType type = (roomsPlaced == roomsToPlace - 1) ? Room.RoomType.PORTAL : Room.RoomType.NORMAL;;
 
                 placeRoomInSlot(currentGridX, currentGridY, type);
                 roomsPlaced++;

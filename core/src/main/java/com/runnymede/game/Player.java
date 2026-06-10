@@ -1,10 +1,12 @@
 package com.runnymede.game;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
-
+import com.badlogic.gdx.graphics.Color;
 
 public class Player {
     //  CONSTANTS (default values):
@@ -17,37 +19,69 @@ public class Player {
     private final int BULLET_BOUNCES = 1;
     private final int PIERCE = 1;
 
+    // DASH TUNING CONSTANTS:
+    private float DASH_DURATION;
+    private float DASH_COOLDOWN;
+    private float DASH_SPEED_MULTIPLIER;
 
+    // SHIELD TUNING CONSTANTS:
+    private final float SHIELD_RECHARGE_TIME = 8.0f; // Seconds before bubble comes back
+    private final float SHIELD_SIZE_MULTIPLIER = 2.5f; // How much larger the bubble is than the player
 
     // CLASS VARIABLES:
-    private Rectangle totalHitBox; // The hit box centered on the player
+    private Rectangle totalHitBox;
 
     // The player textures and sprite
     private Texture playerTexture;
     private Sprite playerSprite;
 
+    // Shield textures and sprite
+    private Texture shieldTexture;
+    private Sprite shieldSprite;
+
     // Variable stats
     private int maxHealth;
     private int health;
     private float speed;
-    private int damage; // damage done by each bullet
+    private int damage;
     private float bulletSize;
     private float bulletSpeed;
     private float critChance;
-    private float lifeSteal; // Heals the player by a percent of damage
-    private int bulletBounces; // Number of times the bullet can bounce off of
-    private int pierce; // Number of enemies the bullet can hit without despawning
+    private float lifeSteal;
+    private int bulletBounces;
+    private int pierce;
 
-    private float speedMult; // used to change speeds depending on player state
+    // Special cool upgrades
+    public boolean hasDash;
+    public boolean hasUpgradedDash;
 
+    public boolean hasShield;
+
+    // Shield Tracking Variables
+    public boolean shieldActive;
+    private float shieldCooldownTimer = 0f;
+
+    private float speedMult;
+
+    // Dash Tracking Variables
+    private float dashTimer = 0f;
+    private float dashCooldownTimer = 0f;
+    private float dashDirX = 0f;
+    private float dashDirY = 0f;
 
     // Constructor
-    public Player(float x, float y, float speed, int maxHealth) {
-        // Instantiates and initializes all variables
+    public Player(float x, float y, float speed, int maxHealth, float DASH_DURATION, float DASH_COOLDOWN, float DASH_SPEED_MULTIPLIER) {
         playerTexture = new Texture("playerSquare.png");
         playerSprite = new Sprite(playerTexture);
         playerSprite.setSize(PLAYER_SIZE, PLAYER_SIZE);
         playerSprite.setPosition(x, y);
+
+        // Initialize the Shield Bubble Sprite
+        shieldTexture = new Texture("shieldTexture.png"); // Make sure to drop this image in your assets!
+        shieldSprite = new Sprite(shieldTexture);
+        shieldSprite.setSize(PLAYER_SIZE * SHIELD_SIZE_MULTIPLIER, PLAYER_SIZE * SHIELD_SIZE_MULTIPLIER);
+        shieldSprite.setColor(Color.PURPLE);
+        shieldSprite.setAlpha(0.7f); // Makes the bubble 60% transparent
 
         totalHitBox = new Rectangle(x, y, PLAYER_SIZE, PLAYER_SIZE);
 
@@ -55,7 +89,6 @@ public class Player {
         this.maxHealth = maxHealth;
         this.speed = speed;
 
-        // default values
         this.damage = DAMAGE;
         this.bulletSize = BULLET_SIZE;
         this.bulletSpeed = BULLET_SPEED;
@@ -64,18 +97,26 @@ public class Player {
         this.bulletBounces = BULLET_BOUNCES;
         this.pierce = PIERCE;
 
-        speedMult = 1f; // default state has no speed mult
+        speedMult = 1f;
+
+        this.DASH_DURATION = DASH_DURATION;
+        this.DASH_COOLDOWN = DASH_COOLDOWN;
+        this.DASH_SPEED_MULTIPLIER = DASH_SPEED_MULTIPLIER;
+
+        this.hasDash = true;
+        this.hasUpgradedDash = false;
+
+        this.hasShield = true;
+        this.shieldActive = true;
+
 
     }
 
     // GETTERS
     public float getX(){return playerSprite.getX();}
     public float getY(){return playerSprite.getY();}
-
-    // These gets the center cords instead of bottom left corner
     public float getCenterX() {return playerSprite.getX() + playerSprite.getWidth() / 2;}
     public float getCenterY() {return playerSprite.getY() + playerSprite.getHeight() / 2;}
-
     public Sprite getSprite(){return playerSprite;}
     public Rectangle getHitBox(){return totalHitBox;}
     public float getSpeed(){return speed;}
@@ -88,8 +129,10 @@ public class Player {
     public int getBulletBounces(){return bulletBounces;}
     public int getPierce(){return pierce;}
     public int getDamage(){return damage;}
+    public boolean isDashing() { return dashTimer > 0f; }
+    public boolean isAlive(){return health > 0;}
 
-    // Setters
+    // SETTERS
     public void setPosition(float x, float y){playerSprite.setPosition(x, y);}
     public void setTotalHitBox(float x, float y){totalHitBox.setPosition(x, y);}
     public void setSpeedMult(float newMult){speedMult = newMult;}
@@ -109,81 +152,176 @@ public class Player {
         else health = maxHealth;
     }
 
-    public void takeDamage(float damage){
+
+
+    /**
+     * Now returns a boolean! True if the player lost health, False if damage was dodged or blocked.
+     */
+    public boolean takeDamage(float damage){
+        if (hasUpgradedDash && isDashing()) {
+            return false; // Dodged!
+        }
+
+        if (hasShield && shieldActive) {
+            shieldActive = false;
+            shieldCooldownTimer = SHIELD_RECHARGE_TIME;
+            System.out.println("Shield Popped! Negated " + damage + " damage.");
+            return false; // Blocked!
+        }
+
         health -= damage;
         if(health <= 0){
-            // FILL IN LATER*************************************
+            System.out.println("Player has been defeated!");
+        }
+        return true; // Took actual health damage!
+    }
+
+    public void updateShieldSystem(float dt) {
+        // Tick down the recharge timer if the shield is broken
+        if (hasShield && !shieldActive) {
+            shieldCooldownTimer -= dt;
+            if (shieldCooldownTimer <= 0) {
+                shieldActive = true;
+                System.out.println("Shield Recharged!");
+            }
+        }
+
+        // If the shield is active, snap its coordinates to perfectly center around the player
+        if (shieldActive) {
+            float shieldX = getCenterX() - (shieldSprite.getWidth() / 2f);
+            float shieldY = getCenterY() - (shieldSprite.getHeight() / 2f);
+            shieldSprite.setPosition(shieldX, shieldY);
         }
     }
 
-    // MOVEMENT METHODS:
-    // calculates the change amount with delta time, speed, and speed multiplier
-    // Then moves the player by that amount
+    public void updateDashSystem(float dt, GridManager gridManager) {
+        if (dashCooldownTimer > 0) dashCooldownTimer -= dt;
+
+        if (isDashing()) {
+            float oldX = playerSprite.getX();
+            float oldY = playerSprite.getY();
+
+            float length = (float) Math.sqrt(dashDirX * dashDirX + dashDirY * dashDirY);
+            float moveX = 0;
+            float moveY = 0;
+            if (length > 0) {
+                moveX = (dashDirX / length) * speed * DASH_SPEED_MULTIPLIER * dt;
+                moveY = (dashDirY / length) * speed * DASH_SPEED_MULTIPLIER * dt;
+            }
+
+            playerSprite.translate(moveX, 0);
+            totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
+            if (gridManager.checkWallCollision(totalHitBox)) {
+                playerSprite.setX(oldX);
+                totalHitBox.setPosition(oldX, oldY);
+            }
+
+            playerSprite.translate(0, moveY);
+            totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
+            if (gridManager.checkWallCollision(totalHitBox)) {
+                playerSprite.setY(oldY);
+                totalHitBox.setPosition(playerSprite.getX(), oldY);
+            }
+
+            dashTimer -= dt;
+            return;
+        }
+
+        if (hasDash && dashCooldownTimer <= 0 && Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+            dashDirX = 0f;
+            dashDirY = 0f;
+
+            if (Gdx.input.isKeyPressed(Input.Keys.A)) dashDirX -= 1f;
+            if (Gdx.input.isKeyPressed(Input.Keys.D)) dashDirX += 1f;
+            if (Gdx.input.isKeyPressed(Input.Keys.S)) dashDirY -= 1f;
+            if (Gdx.input.isKeyPressed(Input.Keys.W)) dashDirY += 1f;
+
+            if (dashDirX != 0f || dashDirY != 0f) {
+                dashTimer = DASH_DURATION;
+                dashCooldownTimer = DASH_COOLDOWN;
+            }
+        }
+    }
+
     public void moveLeft(float dt, GridManager gridManager){
+        if (isDashing()) return;
         float oldX = playerSprite.getX();
         float oldY = playerSprite.getY();
-
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(-changeAmt, 0);
         totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
-
         if(gridManager.checkWallCollision(totalHitBox)){
             playerSprite.setX(oldX);
             totalHitBox.setPosition(oldX, oldY);
         }
-
     }
 
     public void moveRight(float dt, GridManager gridManager){
+        if (isDashing()) return;
         float oldX = playerSprite.getX();
         float oldY = playerSprite.getY();
-
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(changeAmt, 0);
         totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
-
         if(gridManager.checkWallCollision(totalHitBox)){
             playerSprite.setX(oldX);
             totalHitBox.setPosition(oldX, oldY);
         }
-
     }
 
     public void moveUp(float dt, GridManager gridManager){
+        if (isDashing()) return;
         float oldX = playerSprite.getX();
         float oldY = playerSprite.getY();
-
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(0, changeAmt);
         totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
-
         if(gridManager.checkWallCollision(totalHitBox)){
             playerSprite.setY(oldY);
             totalHitBox.setPosition(oldX, oldY);
         }
-
     }
 
     public void moveDown(float dt, GridManager gridManager){
+        if (isDashing()) return;
         float oldX = playerSprite.getX();
         float oldY = playerSprite.getY();
-
         float changeAmt = speed * speedMult * dt;
         playerSprite.translate(0, -changeAmt);
         totalHitBox.setPosition(playerSprite.getX(), playerSprite.getY());
-
         if(gridManager.checkWallCollision(totalHitBox)){
             playerSprite.setY(oldY);
             totalHitBox.setPosition(oldX, oldY);
         }
-
     }
 
-
-
+    public void applyUpgrade(MainGame.LoopUpgrade upgrade) {
+        switch (upgrade) {
+            case LIFESTEAL:
+                this.lifeSteal += 0.05f;
+                break;
+            case BOUNCES:
+                this.bulletBounces += 1;
+                break;
+            case SHIELD:
+                this.hasShield = true;
+                this.shieldActive = true; // Turn it on instantly when acquired!
+                break;
+            case DASH:
+                this.hasDash = true;
+                break;
+            case UPGRADED_DASH:
+                this.hasUpgradedDash = true;
+                break;
+        }
+    }
 
     public void draw(SpriteBatch spriteBatch){
         playerSprite.draw(spriteBatch);
-    }
 
+        // Only draw the bubble if they have the upgrade AND it isn't broken
+        if (hasShield && shieldActive) {
+            shieldSprite.draw(spriteBatch);
+        }
+    }
 }

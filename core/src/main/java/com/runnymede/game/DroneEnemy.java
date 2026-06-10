@@ -28,8 +28,11 @@ public class DroneEnemy extends Enemy {
     private float explosionDisplayTimer;
 
     // Targeting coordinates
-    private float crosshairX;
+    private float crosshairX; // Stores the position the cross hair should be
     private float crosshairY;
+
+    private float lastPlayerX;
+    private float lastPlayerY;
 
     // coordinates to pin the explosion texture to the ground
     private float explosionX;
@@ -64,6 +67,9 @@ public class DroneEnemy extends Enemy {
 
         this.explosionSprite = new Sprite(explosionTexture);
         this.explosionSprite.setSize(indicatorSize * 1.05f, indicatorSize * 1.05f);
+
+        lastPlayerX = 0;
+        lastPlayerY = 0;
     }
 
     @Override
@@ -73,12 +79,10 @@ public class DroneEnemy extends Enemy {
         float playerX = targetX;
         float playerY = targetY;
 
-        // Keeps track of how long the explosion sprite remains visible on screen
         if (explosionDisplayTimer > 0) {
             explosionDisplayTimer -= dt;
         }
 
-        // Dynamic half-size offsets based on the actual sprite dimensions
         float indicatorHalfWidth = warningIndicatorSprite.getWidth() / 2f;
         float explosionHalfWidth = explosionSprite.getWidth() / 2f;
 
@@ -106,32 +110,38 @@ public class DroneEnemy extends Enemy {
                 crosshairX = playerX;
                 crosshairY = playerY;
 
-                // Using the sprite's half size to center it perfectly on the crosshair
                 warningIndicatorSprite.setPosition(crosshairX - indicatorHalfWidth, crosshairY - indicatorHalfWidth);
 
                 if (trackTimer <= 0) {
                     state = BomberState.LOCKED;
                     lockTimer = maxLockTime;
+
+                    // YOUR FIX: Calculate the predicted offset ONCE and apply it immediately.
+                    // We find the player's velocity, and multiply it by a prediction window (e.g., predicting 0.3 seconds ahead).
+                    float predictedOffsetX = ((playerX - lastPlayerX) / dt) * 0.2f;
+                    float predictedOffsetY = ((playerY - lastPlayerY) / dt) * 0.2f;
+
+                    // Snap the crosshair forward to the predicted spot
+                    crosshairX += predictedOffsetX;
+                    crosshairY += predictedOffsetY;
                 }
                 break;
 
             case LOCKED:
                 lockTimer -= dt;
 
-                // Using the sprite's half size to center it perfectly on the crosshair
+                // The crosshair coordinates are now COMPLETELY untouched here!
+                // We just keep updating the sprite to sit exactly where we snapped it.
                 warningIndicatorSprite.setPosition(crosshairX - indicatorHalfWidth, crosshairY - indicatorHalfWidth);
 
                 if (lockTimer <= 0) {
-                    // Lock the explosion visuals to the current crosshair spot
                     explosionX = crosshairX;
                     explosionY = crosshairY;
 
-                    // Using the explosion sprite's own half size for perfect positioning
                     explosionSprite.setPosition(explosionX - explosionHalfWidth, explosionY - explosionHalfWidth);
 
                     executeExplosion(playerX, playerY, mainGame);
 
-                    // Display the explosion texture for zero point three seconds
                     explosionDisplayTimer = 0.3f;
 
                     state = BomberState.FLEEING;
@@ -139,6 +149,10 @@ public class DroneEnemy extends Enemy {
                 }
                 break;
         }
+
+        // Cache the player's position at the very end of the loop for the next frame's math
+        lastPlayerX = playerX;
+        lastPlayerY = playerY;
     }
 
     private void executeExplosion(float playerX, float playerY, MainGame mainGame) {
