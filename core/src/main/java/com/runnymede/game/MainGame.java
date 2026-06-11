@@ -3,6 +3,7 @@ package com.runnymede.game;
 import java.util.ArrayList;
 import java.util.Random;
 
+import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -18,14 +19,14 @@ public class MainGame implements ApplicationListener {
 
     //Player constants
     private static final float PLAYER_BASE_SPEED = 2.1f;
-    private static final int PLAYER_BASE_HEALTH = 5;
+    private static final int PLAYER_BASE_HEALTH = 12;
     private static final float PLAYER_DASH_DURACTION = 0.18f;
     private static final float PLAYER_DASH_COOLDOWN = 1.2f;
     private static final float PLAYER_DASH_SPEED_MULTIPLIER = 3.5f;
 
-    private static final float PERIODIC_DIFF_INCREMENT = 0.03f;
+    private static final float PERIODIC_DIFF_INCREMENT = 0.02f;
     private static final float LEVEL_UP_DIFF_MULT = 1.2f;
-    private static final float DIFF_TIMER_REFRESH = 0.8f;
+    private static final float DIFF_TIMER_REFRESH = 1.2f;
 
     // Enemy constants
     private static final float ENEMY_TIMER_REFRESH = 0.8f;
@@ -74,6 +75,10 @@ public class MainGame implements ApplicationListener {
     Texture crosshairTexture;
     Texture explosionTexture;
     Texture portalTexture;
+    Texture bossTexture;
+    Texture bossTurretTexture;
+    Texture skullTexture;
+    private Texture wallTexture;
 
     public enum GameState {PLAYING, UPGRADE_MENU, GAME_OVER}
     private GameState gameState = GameState.PLAYING;
@@ -81,8 +86,7 @@ public class MainGame implements ApplicationListener {
     private SpriteBatch spriteBatch;
     private Viewport viewport;
 
-    private ArrayList<Rectangle> walls;
-    private Texture wallTexture;
+
 
     private BitmapFont font;
     private BitmapFont menuFont;
@@ -97,9 +101,12 @@ public class MainGame implements ApplicationListener {
     private ArrayList<Room> rooms;
 
     private ArrayList<Enemy> enemies;
+    private ArrayList<Enemy> enemiesToSpawn;
     private ArrayList<DamageText> damageTexts;
     private ArrayList<Projectile> projectiles;
     private ArrayList<Upgrade> upgrades;
+    private ArrayList<Rectangle> walls;
+
 
     private float difficultyScale;
     private float difficultyTimer;
@@ -109,6 +116,21 @@ public class MainGame implements ApplicationListener {
 
     public enum LoopUpgrade { LIFESTEAL, DASH, UPGRADED_DASH, SHIELD, BOUNCES }
     private LoopUpgrade[] currentChoices = new LoopUpgrade[3];
+
+    // UI VARIABLES:
+    private FitViewport uiViewport;
+    private Texture healthBarFrameTexture;
+    private Texture solidColorTexture;
+
+    // SOUND TRACKS:
+    Music mainThemeSong;
+    Music bossFightTheme;
+
+    // Audio Manager Variables:
+    private Music currentTrack;
+    private Music incomingTrack;
+    private boolean isFading = false;
+    private float fadeSpeed = 0.5f;
 
     public void create() {
         spriteBatch = new SpriteBatch();
@@ -126,8 +148,11 @@ public class MainGame implements ApplicationListener {
         laserTexture = new Texture("laserTexture.png");
         droneTexture = new Texture("droneTexture.png");
         crosshairTexture = new Texture("crosshairTexture.png");
-        explosionTexture = new Texture("explosionTexture.jpg");
+        explosionTexture = new Texture("explosionTexture.png");
         portalTexture = new Texture("portalTexture.png");
+        bossTexture = new Texture("bossTexture.png");
+        bossTurretTexture = new Texture("bossTurretTexture.png");
+        skullTexture = new Texture("skullTexture.png"); // Boss room indicator
 
         walls.add(new Rectangle(0, 0, 20, 0.5f));
         walls.add(new Rectangle(0, 19.5f, 20, 0.5f));
@@ -142,6 +167,7 @@ public class MainGame implements ApplicationListener {
         upgrades = new ArrayList<Upgrade>();
         damageTexts = new ArrayList<DamageText>();
         rooms = new ArrayList<Room>();
+        enemiesToSpawn = new ArrayList<Enemy>();
 
         font = new BitmapFont();
         font.setUseIntegerPositions(false);
@@ -155,7 +181,35 @@ public class MainGame implements ApplicationListener {
         difficultyScale = 1.0f;
         difficultyTimer = DIFF_TIMER_REFRESH;
 
+        // Ui elements:
+        // Creates a high-resolution viewport for crisp UI elements
+        uiViewport = new FitViewport(800, 480);
+
+        healthBarFrameTexture = new Texture("emptyHealthBarTexture.png");
+
+        // Generate a 1x1 white pixel texture for the green health bar
+        com.badlogic.gdx.graphics.Pixmap pixmap = new com.badlogic.gdx.graphics.Pixmap(1, 1, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
+        pixmap.setColor(com.badlogic.gdx.graphics.Color.WHITE);
+        pixmap.fill();
+        solidColorTexture = new Texture(pixmap);
+        pixmap.dispose();
+
         buildFloorLayout();
+
+        // Initialize and play music
+        mainThemeSong = Gdx.audio.newMusic(Gdx.files.internal("normalSoundtrack.mp3"));
+        bossFightTheme = Gdx.audio.newMusic(Gdx.files.internal("bossSoundTrack.mp3"));
+
+        mainThemeSong.setLooping(true);
+        bossFightTheme.setLooping(true);
+
+        // Start the game with the main theme
+        mainThemeSong.setVolume(1.0f);
+        bossFightTheme.setVolume(0.0f);
+
+        currentTrack = mainThemeSong;
+        currentTrack.play();
+
     }
 
     private void buildFloorLayout() {
@@ -189,6 +243,7 @@ public class MainGame implements ApplicationListener {
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true);
+        uiViewport.update(width, height, true); // Keep UI scaled properly
     }
 
     public void render() {
@@ -213,6 +268,16 @@ public class MainGame implements ApplicationListener {
         spriteBatch.dispose();
         font.dispose();
         menuFont.dispose();
+
+        // Dispose UI Textures
+        healthBarFrameTexture.dispose();
+        solidColorTexture.dispose();
+
+        //Dispose audio
+        mainThemeSong.dispose();
+        bossFightTheme.dispose();
+
+
     }
 
     public void input(float deltaTime) {
@@ -228,8 +293,11 @@ public class MainGame implements ApplicationListener {
         updatePlayerCurrentRoom(rooms);
         updateProjectiles(deltaTime);
         updateDamageTexts(deltaTime);
+        updateMusic(deltaTime);
         handleRoomStateLogic();
+        spawnEnemiesInQue();
         updateAllEnemies(deltaTime, playerXPos, playerYPos);
+
         doUpgrade(deltaTime);
         updateCamera();
         handleDifficultyScaling(deltaTime);
@@ -240,6 +308,7 @@ public class MainGame implements ApplicationListener {
     }
 
     public void draw() {
+        // 1. WORLD DRAWING PHASE
         viewport.apply();
         spriteBatch.setProjectionMatrix(viewport.getCamera().combined);
 
@@ -265,54 +334,106 @@ public class MainGame implements ApplicationListener {
         }
 
         spriteBatch.end();
+
+        // 2. STATIC UI DRAWING PHASE
+        uiViewport.apply();
+        spriteBatch.setProjectionMatrix(uiViewport.getCamera().combined);
+        spriteBatch.begin();
+
+        // Only draw the HUD if we are actively playing
+        if (gameState == GameState.PLAYING) {
+            drawHUD();
+        }
+
+        spriteBatch.end();
     }
 
+    // Spawns the enmies when the player enters a room
     private void spawnEnemiesForRoom(Room room) {
-        java.util.Random rand = new java.util.Random();
-        float tileSize = gridManager.getTileSize();
+        float tileSize = gridManager.getTileSize(); // gets the tile size
 
-        int enemyCount = rand.nextInt(3, 6);
+        // Checks if it's the boss room
+        if (room.type == Room.RoomType.BOSS) {
+            // If so spawn a boss enemy in the center of the room
+
+            // Gets the position that the enemy should be spawned (center of room)
+            float worldX = (room.getCenterX() * tileSize) + (tileSize / 2f);
+            float worldY = (room.getCenterY() * tileSize) + (tileSize / 2f);
+
+            // adds the boss enemy to the spawn list
+            enemiesToSpawn.add(new BossEnemy(worldX, worldY,
+                bossTexture,         // Fixed: Actual boss texture
+                bulletTexture,       // standard bullet
+                bossTurretTexture,   // turret square
+                droneTexture,        // drone body
+                crosshairTexture,    // Fixed: Drone warning circle
+                explosionTexture,    // drone blast
+                sentryTexture,       // sentry base
+                laserTexture));      // sentry laser
+
+            // returns so nothing else spawns
+            return;
+        }
+
+        // If the room is a portal, spawn nothing
+        if(room.type == Room.RoomType.PORTAL){
+            return;
+        }
+
+        // Normal room spawns
+        java.util.Random rand = new java.util.Random(); // creates an instance of random class
+        int enemyCount = rand.nextInt(3, 6); // Generates a number of enemies to spawn
+
+        // Tracks the number of enemy spawns, and a safety check of how many times it attempts to spawn an enemy
         int spawned = 0;
         int safetyAttempts = 0;
 
+        // Spawns enemies until either it has tried to many times, or has spawned the number of people
         while (spawned < enemyCount && safetyAttempts < 50) {
-            safetyAttempts++;
+            safetyAttempts++; // increaes safety check
 
+            // Gets a random tile in the room
             int randomTileX = rand.nextInt(room.x + 1, room.x + room.width - 1);
             int randomTileY = rand.nextInt(room.y + 1, room.y + room.height - 1);
 
+            // If the tile is walkable spawn an enemy
             if (gridManager.getGrid()[randomTileX][randomTileY].isWalkable) {
+
+                // Gets the spawn position
                 float worldX = (randomTileX * tileSize) + (tileSize / 2f);
                 float worldY = (randomTileY * tileSize) + (tileSize / 2f);
 
-                if (room.type == Room.RoomType.BOSS) {
-                    enemies.add(new RangedEnemy(worldX, worldY, RANGED_BASE_SPEED, 50f, 10f,
-                        enemyTexture, 3.5f, 1.5f, 1.5f, 5f, 0.2f, bulletTexture));
+                // Rolls a number between 0 - 99
+                int spawnRoll = rand.nextInt(0, 100);
+
+                // If number is 0 - 29 add a sentry enemy
+                if (spawnRoll < 32) {
+                    enemiesToSpawn.add(new SentryEnemy(worldX, worldY, SENTRY_BASE_HEALTH, SENTRY_BASE_DAMAGE, SENTRY_FIRE_TIME,
+                        SENTRY_COOLDOWN_TIME, SENTRY_LASER_DURATION, sentryTexture, laserTexture));
+                // If number is 30 - 49 spawn a drone
+                } else if (spawnRoll < 50) {
+                    enemiesToSpawn.add(new DroneEnemy(worldX, worldY, DRONE_BASE_SPEED, DRONE_BASE_HEALTH,
+                        DRONE_BASE_DAMAGE, droneTexture, crosshairTexture, explosionTexture,
+                        DRONE_FLEE_TIME, DRONE_TRACKING_TIME, DRONE_LOCKING_TIME, DRONE_EXPLOSION_RADIUS));
+
+                // If number is 50 - 99 spawn regular ranged enemy
                 } else {
-                    int spawnRoll = rand.nextInt(0, 100);
-                    if (spawnRoll < 30) {
-                        enemies.add(new SentryEnemy(worldX, worldY, SENTRY_BASE_HEALTH, SENTRY_BASE_DAMAGE, SENTRY_FIRE_TIME,
-                            SENTRY_COOLDOWN_TIME, SENTRY_LASER_DURATION, sentryTexture, laserTexture));
-                    } else if (spawnRoll < 80) {
-                        enemies.add(new DroneEnemy(worldX, worldY, DRONE_BASE_SPEED, DRONE_BASE_HEALTH,
-                            DRONE_BASE_DAMAGE, droneTexture, crosshairTexture, explosionTexture,
-                            DRONE_FLEE_TIME, DRONE_TRACKING_TIME, DRONE_LOCKING_TIME, DRONE_EXPLOSION_RADIUS));
-                    } else {
-                        enemies.add(new RangedEnemy(worldX, worldY, RANGED_BASE_SPEED, RANGED_BASE_HEALTH * difficultyScale, RANGED_BASE_DAMAGE * difficultyScale,
-                            enemyTexture, 3.5f, 1.5f, 1.5f, 5f, 0.2f, bulletTexture));
-                    }
+                    enemiesToSpawn.add(new RangedEnemy(worldX, worldY, RANGED_BASE_SPEED, RANGED_BASE_HEALTH * difficultyScale, RANGED_BASE_DAMAGE * difficultyScale,
+                        enemyTexture, 3.5f, 1.5f, 1.5f, 5f, 0.2f, bulletTexture));
                 }
-                spawned++;
+                spawned++; // increase number of spawned enemies
             }
         }
     }
 
+    // Uses the enemies ai method to update all of the enemies
     public void updateAllEnemies(float dt, float playerX, float playerY) {
         for (Enemy e : enemies) {
             e.updateAi(dt, playerX, playerY, ENEMY_BEHAVIOUR_RADIUS, gridManager, pathfinder, this);
         }
     }
 
+    // Updates all projectiles
     public void updateProjectiles(float deltaTime) {
         Random rand = new Random();
 
@@ -536,13 +657,24 @@ public class MainGame implements ApplicationListener {
         for (Room room : placedRooms) {
             if (playerTileX >= room.x && playerTileX < (room.x + room.width) &&
                 playerTileY >= room.y && playerTileY < (room.y + room.height)) {
-                currentRoom = room;
+
+                // If the player steps into a DIFFERENT room than before
+                if (currentRoom != room) {
+                    currentRoom = room;
+
+                    // MUSIC TRIGGER:
+                    if (currentRoom.type == Room.RoomType.BOSS) {
+                        switchTrack(bossFightTheme);
+                    } else {
+                        switchTrack(mainThemeSong);
+                    }
+                }
                 return;
             }
         }
     }
 
-    private void handleRoomStateLogic(){
+    private void handleRoomStateLogic() {
         if (currentRoom == null) return;
 
         if (currentRoom.getState() == Room.RoomState.UNVISITED) {
@@ -557,15 +689,13 @@ public class MainGame implements ApplicationListener {
                 }
             }
         }
-
-        // Transition from locked state to reward collection state once cleared
-        if (currentRoom.getState() == Room.RoomState.LOCKED && enemies.isEmpty()) {
+        // CHANGED TO ELSE IF, AND ADDED enemiesToSpawn CHECK
+        else if (currentRoom.getState() == Room.RoomState.LOCKED && enemies.isEmpty() && enemiesToSpawn.isEmpty()) {
             currentRoom.setState(Room.RoomState.WAITING_FOR_REWARDS);
             spawnRoomRewards(currentRoom);
         }
-
-        // Only unlocks doors when both dropped upgrades disappear or get collected
-        if (currentRoom.getState() == Room.RoomState.WAITING_FOR_REWARDS) {
+        // CHANGED TO ELSE IF
+        else if (currentRoom.getState() == Room.RoomState.WAITING_FOR_REWARDS) {
             if (getActiveUpgradesInRoom(currentRoom) == 0) {
                 currentRoom.unlockDoors(gridManager);
             }
@@ -601,9 +731,17 @@ public class MainGame implements ApplicationListener {
 
 
         player.resetStats(PLAYER_BASE_SPEED, PLAYER_BASE_HEALTH);
+        difficultyScale = 1.0f;
 
         buildFloorLayout();
         gameState = GameState.PLAYING;
+    }
+
+    private void spawnEnemiesInQue(){
+        if(!enemiesToSpawn.isEmpty()){
+            enemies.addAll(enemiesToSpawn);
+            enemiesToSpawn.clear();
+        }
     }
 
     // DRAW METHODS:
@@ -617,11 +755,21 @@ public class MainGame implements ApplicationListener {
         Node[][] grid = gridManager.getGrid();
         float size = gridManager.getTileSize();
 
+        // Draws the walls
         for (int x = 0; x < gridManager.getGridColumns(); x++) {
             for (int y = 0; y < gridManager.getGridRows(); y++) {
                 if (!grid[x][y].isWalkable) {
                     spriteBatch.draw(wallTexture, x * size, y * size, size, size);
                 }
+            }
+        }
+
+        // Draws the skulls sprite in the boss room
+        for (Room room : rooms) {
+            if (room.type == Room.RoomType.BOSS) {
+                float centerX = room.getCenterX() * size;
+                float centerY = room.getCenterY() * size;
+                spriteBatch.draw(skullTexture, centerX - 0.5f, centerY - 0.5f, 1f, 1f);
             }
         }
     }
@@ -662,12 +810,80 @@ public class MainGame implements ApplicationListener {
         menuFont.draw(spriteBatch, "Press 'R' to Restart from This Floor Layout", player.getCenterX() - 2.6f, player.getCenterY() - 0.2f);
     }
 
+    private void drawHUD() {
+        // Base coordinates for the bottom-left corner of the HUD
+        float hudX = 10;
+        float hudY = 8;
+
+        // The size we want to draw the empty frame
+        float frameWidth = 160;
+        float frameHeight = 90;
+
+        // Calculate the player's health percentage
+        float healthPercent = (float) player.getHealth() / player.getMaxHealth();
+        healthPercent = Math.max(0, healthPercent); // Prevents drawing a negative width if health drops below 0
+
+        // Variable offsets
+        float greenOffsetX = 47; // Pushes the green bar right, past the red heart
+        float greenOffsetY = 34; // Pushes the green bar up from the bottom edge
+        float maxGreenWidth = 100; // The maximum width of the green bar when at 100% health
+        float greenHeight = 26;  // The thickness of the green bar
+
+        // Calculate the dynamic width based on current health
+        float currentGreenWidth = maxGreenWidth * healthPercent;
+
+        // Draws the health bar
+        spriteBatch.setColor(com.badlogic.gdx.graphics.Color.GREEN); // Tint the white pixel green
+        spriteBatch.draw(solidColorTexture, hudX + greenOffsetX, hudY + greenOffsetY, currentGreenWidth, greenHeight);
+
+        // resets the sprite batch tint
+        spriteBatch.setColor(com.badlogic.gdx.graphics.Color.WHITE);
+
+        // Draws the health bar frame
+        spriteBatch.draw(healthBarFrameTexture, hudX, hudY, frameWidth, frameHeight);
+    }
+
+    // Safely queues a track change if it isn't already playing
+    private void switchTrack(Music newTrack) {
+        if (currentTrack == newTrack || incomingTrack == newTrack) return;
+        incomingTrack = newTrack;
+        isFading = true;
+    }
+
+    // Handles the cross-fade logic every frame
+    private void updateMusic(float deltaTime) {
+        // Step 1: Fade out the old track
+        if (isFading && incomingTrack != null) {
+            float currentVol = currentTrack.getVolume();
+            float newVol = currentVol - (fadeSpeed * deltaTime);
+
+            if (newVol <= 0) {
+                // Fade out complete -> Swap to the new track
+                currentTrack.stop();
+                currentTrack = incomingTrack;
+                currentTrack.setVolume(0f);
+                currentTrack.play();
+
+                isFading = false;
+                incomingTrack = null;
+            } else {
+                currentTrack.setVolume(newVol);
+            }
+        }
+        // Step 2: Fade in the new track
+        else if (!isFading && currentTrack.getVolume() < 1.0f) {
+            float newVol = currentTrack.getVolume() + (fadeSpeed * deltaTime);
+            if (newVol > 1.0f) newVol = 1.0f; // Cap volume at 1.0 (100%)
+            currentTrack.setVolume(newVol);
+        }
+    }
+
     public Player getPlayer() {return player;}
     public void addProjectile(Projectile p){projectiles.add(p);}
     public void removeProjectile(Projectile p){projectiles.remove(p);}
     public void addUpgrade(Upgrade up){upgrades.add(up);}
     public void removeUpgrade(Upgrade up){upgrades.remove(up);}
-    public void addEnemy(Enemy enemy){enemies.add(enemy);}
+    public void addEnemy(Enemy enemy){enemiesToSpawn.add(enemy);}
     public void removeEnemy(Enemy enemy){enemies.remove(enemy);}
     public void addDamageText(DamageText dt){damageTexts.add(dt);}
     public void removeDamageText(DamageText dt){damageTexts.remove(dt);}

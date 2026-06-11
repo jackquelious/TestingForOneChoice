@@ -5,6 +5,8 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
+import java.util.Random;
+
 public class DroneEnemy extends Enemy {
 
     public enum BomberState {
@@ -44,8 +46,8 @@ public class DroneEnemy extends Enemy {
 
     // Updated constructor accepting configuration settings and textures
     public DroneEnemy(float xPos, float yPos, float speed, float health, float damage,
-                       Texture mainTexture, Texture circleTexture, Texture explosionTexture,
-                       float maxFleeTime, float maxTrackTime, float maxLockTime, float blastRadius) {
+                      Texture mainTexture, Texture circleTexture, Texture explosionTexture,
+                      float maxFleeTime, float maxTrackTime, float maxLockTime, float blastRadius) {
 
         super(xPos, yPos, speed, health, damage, mainTexture);
 
@@ -74,6 +76,8 @@ public class DroneEnemy extends Enemy {
 
     @Override
     public void updateAi(float dt, float targetX, float targetY, float radius, GridManager gridManager, Pathfinder pathfinder, MainGame mainGame) {
+        Random rand = new Random();
+
         if (!isAlive()) return;
 
         float playerX = targetX;
@@ -101,6 +105,7 @@ public class DroneEnemy extends Enemy {
                 if (fleeTimer <= 0) {
                     state = BomberState.TRACKING;
                     trackTimer = maxTrackTime;
+                    warningIndicatorSprite.setPosition(targetX, targetY);
                 }
                 break;
 
@@ -116,22 +121,22 @@ public class DroneEnemy extends Enemy {
                     state = BomberState.LOCKED;
                     lockTimer = maxLockTime;
 
-                    // YOUR FIX: Calculate the predicted offset ONCE and apply it immediately.
-                    // We find the player's velocity, and multiply it by a prediction window (e.g., predicting 0.3 seconds ahead).
+                    // Calculate the predicted offset ONCE and apply it immediately.
                     float predictedOffsetX = ((playerX - lastPlayerX) / dt) * 0.2f;
                     float predictedOffsetY = ((playerY - lastPlayerY) / dt) * 0.2f;
 
+                    float randomXOffset = (float) (rand.nextBoolean() ? rand.nextDouble() * 0.2f : -rand.nextDouble() * 0.2f);
+                    float randomYOffset = (float) (rand.nextBoolean() ? rand.nextDouble() * 0.2f : -rand.nextDouble() * 0.2f);
+
                     // Snap the crosshair forward to the predicted spot
-                    crosshairX += predictedOffsetX;
-                    crosshairY += predictedOffsetY;
+                    crosshairX += predictedOffsetX + randomXOffset;
+                    crosshairY += predictedOffsetY + randomYOffset;
                 }
                 break;
 
             case LOCKED:
                 lockTimer -= dt;
 
-                // The crosshair coordinates are now COMPLETELY untouched here!
-                // We just keep updating the sprite to sit exactly where we snapped it.
                 warningIndicatorSprite.setPosition(crosshairX - indicatorHalfWidth, crosshairY - indicatorHalfWidth);
 
                 if (lockTimer <= 0) {
@@ -159,10 +164,9 @@ public class DroneEnemy extends Enemy {
         float distance = getDistanceToPoint(crosshairX, crosshairY, playerX, playerY);
 
         if (distance <= blastRadius) {
-            // mainGame.getPlayer().takeDamage(this.damage);
-            System.out.println("BOOM Player hit");
-        } else {
-            System.out.println("BOOM Player dodged");
+            // FIXED: Apply damage and spawn floating text!
+            mainGame.getPlayer().takeDamage(this.damage);
+            mainGame.addDamageText(new DamageText(this.damage, false, false, playerX, playerY));
         }
     }
 
@@ -170,7 +174,7 @@ public class DroneEnemy extends Enemy {
     public void draw(SpriteBatch batch) {
         // 1. Draw the warning ring with the correct phase color filters
         if (state == BomberState.TRACKING) {
-            warningIndicatorSprite.setColor(Color.CYAN); // Fixed from Blue to Cyan to prevent black textures
+            warningIndicatorSprite.setColor(Color.CYAN);
             warningIndicatorSprite.draw(batch);
         } else if (state == BomberState.LOCKED) {
             warningIndicatorSprite.setColor(Color.RED);

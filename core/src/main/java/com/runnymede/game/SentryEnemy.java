@@ -14,10 +14,10 @@ public class SentryEnemy extends Enemy {
     private float cooldownTimer;
     private float laserVisibleTimer;
 
-    // Timers
+    // Attributes
     private float maxFireTime;      // How long it takes to lock on
     private float maxCooldownTime;  // Time between shots
-    private float laserDuration;     // How long the beam stays on screen
+    private float laserDuration;    // How long the beam stays on screen
 
     // Target tracking for rendering the laser
     private float targetX;
@@ -25,7 +25,6 @@ public class SentryEnemy extends Enemy {
     private Texture laserTexture;
 
     public SentryEnemy(float x, float y, float health, float damage, float maxFireTime, float maxCoolDown, float laserDuration, Texture texture, Texture laserTexture) {
-        // We pass 0.0f for speed so your physical movement code completely ignores it!
         super(x, y, 0.0f, health, damage, texture);
 
         this.maxFireTime = maxFireTime;
@@ -37,29 +36,23 @@ public class SentryEnemy extends Enemy {
         this.fireTimer = maxFireTime;
         this.cooldownTimer = maxCoolDown;
         this.laserVisibleTimer = 0.0f;
-
     }
 
     @Override
     public void updateAi(float dt, float playerX, float playerY, float radius, GridManager gridManager, Pathfinder pathfinder, MainGame game) {
-        // Always keep hitbox securely wrapped around the stationary model
         this.setHitBoxPos(getXPos(), getYPos());
 
         switch (state) {
             case TRACKING:
                 fireTimer -= dt;
 
-                // Trigger the Hitscan!
                 if (fireTimer <= 0) {
                     state = SentryState.FIRING;
                     laserVisibleTimer = laserDuration;
 
-                    // Lock coordinates for visual drawing
-                    this.targetX = playerX;
-                    this.targetY = playerY;
-
-                    if(!hasLineOfSight(playerX, playerY, gridManager)) {
-                        // Apply instant, unavoidable damage and spawn visual text
+                    // CHANGED: We now let calculateLaserPath determine targetX, targetY, AND if we hit the player!
+                    // REMOVED the "!" that was reversing your logic
+                    if (calculateLaserPath(playerX, playerY, gridManager)) {
                         game.getPlayer().takeDamage(this.damage);
                         game.addDamageText(new DamageText(this.damage, false, false, playerX, playerY));
                     }
@@ -86,22 +79,21 @@ public class SentryEnemy extends Enemy {
 
     /**
      * Raycasts a line from the Sentry to the Player.
-     * Returns false the exact moment the line touches a solid grid wall.
+     * Updates targetX and targetY to either the Player OR the obstructing Wall.
+     * @return true if the laser hit the player, false if it hit a wall.
      */
-    private boolean hasLineOfSight(float targetX, float targetY, GridManager gridManager) {
+    private boolean calculateLaserPath(float playerX, float playerY, GridManager gridManager) {
         float startX = this.getCenterXPos();
         float startY = this.getCenterYPos();
 
-        float dx = targetX - startX;
-        float dy = targetY - startY;
+        float dx = playerX - startX;
+        float dy = playerY - startY;
         float distance = (float) Math.sqrt(dx * dx + dy * dy);
 
-        // Normalize direction
         float dirX = dx / distance;
         float dirY = dy / distance;
 
         float tileSize = gridManager.getTileSize();
-        // Step forward in tiny increments (a quarter of a tile) to ensure we never jump over a wall
         float stepSize = tileSize / 4f;
 
         for (float currentDist = 0; currentDist < distance; currentDist += stepSize) {
@@ -111,34 +103,38 @@ public class SentryEnemy extends Enemy {
             int tileX = (int) (checkX / tileSize);
             int tileY = (int) (checkY / tileSize);
 
-            // Ensure we stay inside array bounds
             if (tileX >= 0 && tileX < gridManager.getGridColumns() && tileY >= 0 && tileY < gridManager.getGridRows()) {
                 if (!gridManager.getGrid()[tileX][tileY].isWalkable) {
-                    return false; // Line hit a solid wall!
+                    // HIT A WALL!
+                    // Truncate the visual laser coordinates exactly at the wall surface
+                    this.targetX = checkX;
+                    this.targetY = checkY;
+                    return false;
                 }
             }
         }
-        return true; // Line reached the player unobstructed!
+
+        // HIT THE PLAYER!
+        this.targetX = playerX;
+        this.targetY = playerY;
+        return true;
     }
 
     @Override
     public void draw(SpriteBatch batch) {
-        // Draw the Sentry base body
         super.draw(batch);
 
-        // Render the hitscan laser if firing
         if (state == SentryState.FIRING || laserVisibleTimer > 0) {
             float startX = this.getCenterXPos();
             float startY = this.getCenterYPos();
 
             float dx = targetX - startX;
             float dy = targetY - startY;
-            float distance = (float) Math.sqrt(dx * dx + dy * dy);
 
-            // Calculate angle for the LibGDX draw rotation
+            // Your draw loop will automatically shrink the texture based on the distance to the wall!
+            float distance = (float) Math.sqrt(dx * dx + dy * dy);
             float angle = (float) Math.toDegrees(Math.atan2(dy, dx));
 
-            // Stretches your bullet/laser texture to perfectly bridge the gap between Sentry and Player
             batch.draw(laserTexture, startX, startY - 0.1f, 0, 0.1f, distance, 0.2f, 1f, 1f, angle, 0, 0, laserTexture.getWidth(), laserTexture.getHeight(), false, false);
         }
     }

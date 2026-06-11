@@ -10,7 +10,7 @@ import com.badlogic.gdx.graphics.Color;
 
 public class Player {
     //  CONSTANTS (default values):
-    private final float PLAYER_SIZE = 0.32f;
+    private final float PLAYER_SIZE = 0.25f;
     private final int DAMAGE = 1;
     private final float BULLET_SIZE = 0.18f;
     private final float BULLET_SPEED = 5.0f;
@@ -103,11 +103,11 @@ public class Player {
         this.DASH_COOLDOWN = DASH_COOLDOWN;
         this.DASH_SPEED_MULTIPLIER = DASH_SPEED_MULTIPLIER;
 
-        this.hasDash = true;
+        this.hasDash = false;
         this.hasUpgradedDash = false;
 
-        this.hasShield = true;
-        this.shieldActive = true;
+        this.hasShield = false;
+        this.shieldActive = false;
 
 
     }
@@ -158,11 +158,11 @@ public class Player {
         this.health = baseHealth;
 
         // Reset weapon/bullet attributes back to defaults
-        this.damage = 1;       // Or your game's default player base damage
-        this.bulletSize = 0.2f;   // Matches RANGED_BASE_BULLET_SIZE
-        this.bulletSpeed = 4.5f;  // Matches RANGED_BASE_BULLET_SPEED
-        this.bulletBounces = 0;
-        this.critChance = 0.05f;  // 5% default base
+        this.damage = 1;
+        this.bulletSize = 0.2f;
+        this.bulletSpeed = 4.5f;
+        this.bulletBounces = 1;
+        this.critChance = 0.00f;
         this.lifeSteal = 0.0f;
         this.pierce = 1;
 
