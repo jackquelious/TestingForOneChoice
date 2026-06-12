@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Random;
 
 import com.badlogic.gdx.audio.Music;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -15,18 +16,18 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class MainGame implements ApplicationListener {
     /// CONSTANTS:
-    private static final float CRIT_MULTIPLIER = 2.5f;
+    private static final float CRIT_MULTIPLIER = 3.2f;
 
     //Player constants
-    private static final float PLAYER_BASE_SPEED = 2.1f;
-    private static final int PLAYER_BASE_HEALTH = 12;
-    private static final float PLAYER_DASH_DURACTION = 0.18f;
-    private static final float PLAYER_DASH_COOLDOWN = 1.2f;
-    private static final float PLAYER_DASH_SPEED_MULTIPLIER = 3.5f;
+    private static final float PLAYER_BASE_SPEED = 2.4f;
+    private static final int PLAYER_BASE_HEALTH = 30;
+    private static final float PLAYER_DASH_DURACTION = 0.2f;
+    private static final float PLAYER_DASH_COOLDOWN = 1.5f;
+    private static final float PLAYER_DASH_SPEED_MULTIPLIER = 3.8f;
 
     private static final float PERIODIC_DIFF_INCREMENT = 0.02f;
-    private static final float LEVEL_UP_DIFF_MULT = 1.2f;
-    private static final float DIFF_TIMER_REFRESH = 1.2f;
+    private static final float LEVEL_UP_DIFF_MULT = 1.35f;
+    private static final float DIFF_TIMER_REFRESH = 1.5f;
 
     // Enemy constants
     private static final float ENEMY_TIMER_REFRESH = 0.8f;
@@ -39,32 +40,38 @@ public class MainGame implements ApplicationListener {
 
     // RANGED CONSTANTS
     private static final float RANGED_BASE_SPEED = 0.8f;
-    private static final float RANGED_BASE_DAMAGE = 1.0f;
+    private static final float RANGED_BASE_DAMAGE = 1.2f;
     private static final float RANGED_BASE_HEALTH = 3.0f;
+    private static final float RANGED_BASE_RANGE = 2.5f;
 
-    private static final float RANGED_BASE_BULLET_SPEED = 4.5f;
+    private static final float RANGED_BASE_BULLET_SPEED = 3.8f;
     private static final float RANGED_BASE_BULLET_SIZE = 0.2f;
-    private static final float RANGED_BASE_SHOOT_RANGE = 3.2f;
 
     private static final float RANGED_BASE_RETREAT_TIME = 1.5f;
-    private static final float RANGED_BASE_ATTACK_TIME = 0.8f;
+    private static final float RANGED_BASE_ATTACK_TIME = 1.2f;
 
     // SENTRY CONSTANTS
-    private static final float SENTRY_BASE_DAMAGE = 1.0f;
-    private static final float SENTRY_BASE_HEALTH = 3.0f;
+    private static final float SENTRY_BASE_DAMAGE = 2.6f;
+    private static final float SENTRY_BASE_HEALTH = 5.0f;
     private static final float SENTRY_COOLDOWN_TIME = 1.2f;
     private static final float SENTRY_FIRE_TIME = 3.5f;
     private static final float SENTRY_LASER_DURATION = 0.3f;
 
     // Drone Constants
-    private static final float DRONE_BASE_DAMAGE = 1.0f;
-    private static final float DRONE_BASE_HEALTH = 3.0f;
-    private static final float DRONE_BASE_SPEED = 0.8f;
+    private static final float DRONE_BASE_DAMAGE = 2f;
+    private static final float DRONE_BASE_HEALTH = 2.0f;
+    private static final float DRONE_BASE_SPEED = 1.2f;
     private static final float DRONE_FLEE_TIME = 1.2f;
     private static final float DRONE_TRACKING_TIME = 2.8f;
     private static final float DRONE_LOCKING_TIME = 0.8f;
     private static final float DRONE_EXPLOSION_TIME = 0.8f;
     private static final float DRONE_EXPLOSION_RADIUS = 0.8f;
+
+    // TextConstants
+    float regFontScale = 0.024f;
+    float upgradeFontScale = 0.028f;
+
+
 
     // Textures
     Texture bulletTexture;
@@ -90,8 +97,9 @@ public class MainGame implements ApplicationListener {
 
     private BitmapFont font;
     private BitmapFont menuFont;
+    private BitmapFont upgradeFont;
 
-    private float timer;
+    private float runTime; // Tracks total time on current run
     private float deltaTime;
     private Player player;
     private GridManager gridManager;
@@ -106,6 +114,7 @@ public class MainGame implements ApplicationListener {
     private ArrayList<Projectile> projectiles;
     private ArrayList<Upgrade> upgrades;
     private ArrayList<Rectangle> walls;
+    private ArrayList<UpgradeText> upgradeTexts;
 
 
     private float difficultyScale;
@@ -132,11 +141,15 @@ public class MainGame implements ApplicationListener {
     private boolean isFading = false;
     private float fadeSpeed = 0.5f;
 
+    // Tracks how many floors you cleared
+    private int numberOfFloorsCleared;
+
     public void create() {
         spriteBatch = new SpriteBatch();
         enemies = new ArrayList<Enemy>();
-        timer = 0.2f;
-        player = new Player(10.0f, 10.0f, PLAYER_BASE_SPEED, PLAYER_BASE_HEALTH, PLAYER_DASH_DURACTION, PLAYER_DASH_COOLDOWN, PLAYER_DASH_SPEED_MULTIPLIER);
+        runTime = 0.0f;
+        player = new Player(10.0f, 10.0f, PLAYER_BASE_SPEED, PLAYER_BASE_HEALTH, PLAYER_DASH_DURACTION,
+            PLAYER_DASH_COOLDOWN, PLAYER_DASH_SPEED_MULTIPLIER);
         viewport = new FitViewport(8, 5);
 
         walls = new ArrayList<Rectangle>();
@@ -168,6 +181,7 @@ public class MainGame implements ApplicationListener {
         damageTexts = new ArrayList<DamageText>();
         rooms = new ArrayList<Room>();
         enemiesToSpawn = new ArrayList<Enemy>();
+        upgradeTexts = new ArrayList<UpgradeText>();
 
         font = new BitmapFont();
         font.setUseIntegerPositions(false);
@@ -175,8 +189,17 @@ public class MainGame implements ApplicationListener {
         menuFont = new BitmapFont();
         menuFont.setUseIntegerPositions(false);
         menuFont.getRegion().getTexture().setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
-        menuFont.getData().setScale(0.024f);
+        menuFont.getData().setScale(regFontScale);
         menuFont.setColor(com.badlogic.gdx.graphics.Color.WHITE);
+
+        upgradeFont = new BitmapFont();
+        upgradeFont.setUseIntegerPositions(false);
+
+        upgradeFont = new BitmapFont();
+        upgradeFont.setUseIntegerPositions(false);
+        upgradeFont.getRegion().getTexture().setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+        upgradeFont.getData().setScale(upgradeFontScale);
+        upgradeFont.setColor(com.badlogic.gdx.graphics.Color.WHITE);
 
         difficultyScale = 1.0f;
         difficultyTimer = DIFF_TIMER_REFRESH;
@@ -209,6 +232,8 @@ public class MainGame implements ApplicationListener {
 
         currentTrack = mainThemeSong;
         currentTrack.play();
+
+        numberOfFloorsCleared = 0;
 
     }
 
@@ -249,6 +274,11 @@ public class MainGame implements ApplicationListener {
     public void render() {
         float deltaTime = Gdx.graphics.getDeltaTime();
 
+        // Only increase the timer if the game is actually being played
+        if (gameState == GameState.PLAYING) {
+            runTime += deltaTime;
+        }
+
         if (gameState == GameState.PLAYING) {
             input(deltaTime);
             logic(deltaTime);
@@ -268,6 +298,7 @@ public class MainGame implements ApplicationListener {
         spriteBatch.dispose();
         font.dispose();
         menuFont.dispose();
+        upgradeFont.dispose();
 
         // Dispose UI Textures
         healthBarFrameTexture.dispose();
@@ -293,6 +324,7 @@ public class MainGame implements ApplicationListener {
         updatePlayerCurrentRoom(rooms);
         updateProjectiles(deltaTime);
         updateDamageTexts(deltaTime);
+        updateUpgradeTexts(deltaTime);
         updateMusic(deltaTime);
         handleRoomStateLogic();
         spawnEnemiesInQue();
@@ -308,7 +340,6 @@ public class MainGame implements ApplicationListener {
     }
 
     public void draw() {
-        // 1. WORLD DRAWING PHASE
         viewport.apply();
         spriteBatch.setProjectionMatrix(viewport.getCamera().combined);
 
@@ -326,6 +357,8 @@ public class MainGame implements ApplicationListener {
 
         drawProjectiles();
         drawDamageTexts();
+        drawUpgradeTexts();
+
 
         if (gameState == GameState.UPGRADE_MENU) {
             drawUpgradeMenu();
@@ -335,7 +368,6 @@ public class MainGame implements ApplicationListener {
 
         spriteBatch.end();
 
-        // 2. STATIC UI DRAWING PHASE
         uiViewport.apply();
         spriteBatch.setProjectionMatrix(uiViewport.getCamera().combined);
         spriteBatch.begin();
@@ -406,20 +438,41 @@ public class MainGame implements ApplicationListener {
                 // Rolls a number between 0 - 99
                 int spawnRoll = rand.nextInt(0, 100);
 
-                // If number is 0 - 29 add a sentry enemy
-                if (spawnRoll < 32) {
-                    enemiesToSpawn.add(new SentryEnemy(worldX, worldY, SENTRY_BASE_HEALTH, SENTRY_BASE_DAMAGE, SENTRY_FIRE_TIME,
-                        SENTRY_COOLDOWN_TIME, SENTRY_LASER_DURATION, sentryTexture, laserTexture));
-                // If number is 30 - 49 spawn a drone
-                } else if (spawnRoll < 50) {
-                    enemiesToSpawn.add(new DroneEnemy(worldX, worldY, DRONE_BASE_SPEED, DRONE_BASE_HEALTH,
-                        DRONE_BASE_DAMAGE, droneTexture, crosshairTexture, explosionTexture,
-                        DRONE_FLEE_TIME, DRONE_TRACKING_TIME, DRONE_LOCKING_TIME, DRONE_EXPLOSION_RADIUS));
+                // If number is 0 - 14 (more common with scale) only available on floor 3+
+                if (spawnRoll < (15 + (4.0f * difficultyScale)) && numberOfFloorsCleared > 1) {
+                    float health = SENTRY_BASE_HEALTH + 5.0f * (difficultyScale - 1);
+                    float dmg = Math.min(SENTRY_BASE_DAMAGE + 4.0f * (difficultyScale - 1), 12.0f);
+                    float cd = Math.max(SENTRY_COOLDOWN_TIME - (difficultyScale - 1), 0.1f);
+                    float fireTime = Math.max(2.6f, SENTRY_FIRE_TIME - 0.6f * (difficultyScale - 1));
+
+                    enemiesToSpawn.add(new SentryEnemy(worldX, worldY, health, dmg, fireTime,
+                        cd, SENTRY_LASER_DURATION, sentryTexture, laserTexture));
+
+                // If number is 15 - 34 spawn a drone (more common with scale) Only available on level 2+
+                } else if (spawnRoll < (35 + (4.0f * difficultyScale)) && numberOfFloorsCleared > 0) {
+                    // Calculates attack Times:
+                    float fleeTime = Math.max(DRONE_FLEE_TIME - 0.6f * (difficultyScale - 1), 0.8f);
+                    float trackTime = Math.max(DRONE_TRACKING_TIME - 0.6f * (difficultyScale - 1), 0.8f);
+                    float lockTime = Math.max(DRONE_LOCKING_TIME - 0.14f * (difficultyScale - 1), 0.5f);
+
+                    // Calculates attack values
+                    float boomRad = Math.min(DRONE_EXPLOSION_RADIUS + 0.1f * (difficultyScale-1), 0.95f);
+                    float dmg = Math.min(DRONE_BASE_DAMAGE + 4.0f * (difficultyScale - 1), 10.0f);
+                    float health = (DRONE_BASE_HEALTH * difficultyScale);
+
+                    enemiesToSpawn.add(new DroneEnemy(worldX, worldY, DRONE_BASE_SPEED, health,
+                        dmg, droneTexture, crosshairTexture, explosionTexture,
+                        fleeTime, trackTime, lockTime, boomRad));
 
                 // If number is 50 - 99 spawn regular ranged enemy
                 } else {
-                    enemiesToSpawn.add(new RangedEnemy(worldX, worldY, RANGED_BASE_SPEED, RANGED_BASE_HEALTH * difficultyScale, RANGED_BASE_DAMAGE * difficultyScale,
-                        enemyTexture, 3.5f, 1.5f, 1.5f, 5f, 0.2f, bulletTexture));
+                    float health = RANGED_BASE_HEALTH * difficultyScale;
+                    float dmg = Math.min(RANGED_BASE_DAMAGE + 4.0f * (difficultyScale - 1), 8.0f);
+                    float bulletSpeed = Math.min(RANGED_BASE_BULLET_SPEED + 1.2f * (difficultyScale - 1), 5.5f);
+                    float attackTime = Math.max(RANGED_BASE_ATTACK_TIME - (difficultyScale - 1), 0.5f);
+                    enemiesToSpawn.add(new RangedEnemy(worldX, worldY, RANGED_BASE_SPEED, health, dmg,
+                        enemyTexture, RANGED_BASE_RANGE, attackTime, RANGED_BASE_RETREAT_TIME, bulletSpeed,
+                        RANGED_BASE_BULLET_SIZE, bulletTexture));
                 }
                 spawned++; // increase number of spawned enemies
             }
@@ -451,24 +504,33 @@ public class MainGame implements ApplicationListener {
                     float enemyX = currentEnemy.getCenterXPos();
                     float enemyY = currentEnemy.getCenterYPos();
 
+                    // If they hit eachother deal damage and add them to the list of hit enemies
                     if (projectileHitbox.overlaps(curEnemyHitBox)) {
-                        boolean isCrit = (rand.nextDouble() <= currentProjectile.getCritChance());
-                        float damage = currentProjectile.getDamage() * (isCrit ? CRIT_MULTIPLIER : 1.0f);
 
-                        currentEnemy.takeDamage(damage);
+                        // Checks if the current projectile has already hit that enemy
+                        if (!currentProjectile.hitEnemy(currentEnemy)) {
 
-                        boolean isLethal = !currentEnemy.isAlive();
-                        DamageText text = new DamageText(damage, isCrit, isLethal, enemyX, enemyY);
-                        damageTexts.add(text);
+                            // Records the hit so they won't be damaged again
+                            currentProjectile.recordEnemy(currentEnemy);
 
-                        float amtHealed = damage * currentProjectile.getLifeSteal();
-                        player.heal(amtHealed);
+                            boolean isCrit = (rand.nextDouble() <= currentProjectile.getCritChance());
+                            float damage = currentProjectile.getDamage() * (isCrit ? CRIT_MULTIPLIER : 1.0f);
 
-                        currentProjectile.setPierce(currentProjectile.getPierce() - 1);
+                            currentEnemy.takeDamage(damage);
 
-                        if (currentProjectile.getPierce() <= 0) {
-                            currentProjectile.setActive(false);
-                            currentProjectile.setPosition(-55, 55);
+                            boolean isLethal = !currentEnemy.isAlive();
+                            DamageText text = new DamageText(damage, isCrit, isLethal, enemyX, enemyY);
+                            damageTexts.add(text);
+
+                            float amtHealed = damage * currentProjectile.getLifeSteal();
+                            player.heal(amtHealed);
+
+                            currentProjectile.setPierce(currentProjectile.getPierce() - 1);
+
+                            if (currentProjectile.getPierce() <= 0) {
+                                currentProjectile.setActive(false);
+                                currentProjectile.setPosition(-55, 55);
+                            }
                         }
                     }
 
@@ -524,6 +586,13 @@ public class MainGame implements ApplicationListener {
             if (!dt.getActive()) {
                 damageTexts.remove(i);
             }
+        }
+    }
+
+    public void updateUpgradeTexts(float deltaTime) {
+        for(int i = upgradeTexts.size() - 1; i >= 0; i--){
+            UpgradeText ut = upgradeTexts.get(i);
+            ut.update(deltaTime, this);
         }
     }
 
@@ -584,7 +653,6 @@ public class MainGame implements ApplicationListener {
             if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
                 gameState = GameState.UPGRADE_MENU;
                 generateUpgradeChoices();
-                System.out.println("Portal Interacted! Game Paused for Upgrade Menu.");
             }
         }
     }
@@ -634,7 +702,7 @@ public class MainGame implements ApplicationListener {
         return count;
     }
 
-    // REFACTORED: Safe index-driven clearing to prevent concurrent loop crashes
+    // Method that does upgradeLogic
     public void doUpgrade(float deltaTime){
         for (int i = upgrades.size() - 1; i >= 0; i--){
             Upgrade u = upgrades.get(i);
@@ -643,8 +711,68 @@ public class MainGame implements ApplicationListener {
                 continue;
             }
             if (player.getHitBox().overlaps(u.getHitBox())){
+                String uType = u.getType();
                 u.collect(player);
                 upgrades.remove(i);
+
+
+                System.out.println("type is " + uType);
+                float spawnX = player.getX() - 0.5f;
+                float spawnY = player.getY() + 0.8f;
+
+                // Declare the variable ONCE out here so Java doesn't throw a scope error
+                UpgradeText newText = null;
+
+                switch(uType){
+                    case "damage":
+                        newText = new UpgradeText(spawnX, spawnY, "Increased Damage",
+                            com.badlogic.gdx.graphics.Color.RED);
+                        break;
+
+                    case "health":
+                        newText = new UpgradeText(spawnX, spawnY, "Increased Max Health",
+                            com.badlogic.gdx.graphics.Color.GREEN);
+                        break;
+
+                    case "heal":
+                        newText = new UpgradeText(spawnX, spawnY, "Healed HP",
+                            com.badlogic.gdx.graphics.Color.PINK);
+                        break;
+
+                    case "bulletSize":
+                        newText = new UpgradeText(spawnX, spawnY, "Increased Bullet Size",
+                            com.badlogic.gdx.graphics.Color.BLUE);
+                        break;
+
+                    case "bulletSpeed":
+                        newText = new UpgradeText(spawnX, spawnY, "Increased Bullet Speed",
+                            com.badlogic.gdx.graphics.Color.CYAN);
+                        break;
+
+                    case "critChance":
+                        newText = new UpgradeText(spawnX, spawnY, "Increased Crit Chance",
+                            com.badlogic.gdx.graphics.Color.YELLOW);
+                        break;
+
+                    case "speed":
+                        newText = new UpgradeText(spawnX, spawnY, "Increased Movement Speed",
+                            com.badlogic.gdx.graphics.Color.ORANGE);
+                        break;
+
+                    case "pierce":
+                        newText = new UpgradeText(spawnX, spawnY, "Increased Pierce",
+                            com.badlogic.gdx.graphics.Color.MAGENTA);
+                        break;
+
+                    default:
+                        break;
+                }
+
+                // Adds the text to your active list so it gets rendered to the screen
+                if (newText != null) {
+                    // Assuming UpgradeText extends DamageText, add it right into your existing manager
+                    upgradeTexts.add(newText);
+                }
             }
         }
     }
@@ -708,33 +836,42 @@ public class MainGame implements ApplicationListener {
         cam.update();
     }
 
+    // After using a portal advance to the next level
     private void advanceToNextFloor() {
-        progressLevel();
+        progressLevel(); // updates diff scale
+
+        // Clears all lists
         projectiles.clear();
         upgrades.clear();
         damageTexts.clear();
+        upgradeTexts.clear();
         enemies.clear();
 
-        buildFloorLayout();
-        gameState = GameState.PLAYING;
-        System.out.println("Floor Cleared! Entering the next level...");
+        buildFloorLayout(); // rebuilds a layout
+        gameState = GameState.PLAYING; // resets game state
+        numberOfFloorsCleared ++;
     }
 
+    // Resets the game after dying
     private void restartMatch() {
-        System.out.println("Reviving player and rebuilding current floor layout...");
 
+        // Clears all lists so they can be redone
         projectiles.clear();
         upgrades.clear();
         damageTexts.clear();
+        upgradeTexts.clear();
         enemies.clear();
 
 
-
+        // Resets player stats and difficulty scale
         player.resetStats(PLAYER_BASE_SPEED, PLAYER_BASE_HEALTH);
         difficultyScale = 1.0f;
+        runTime = 0;
 
+        //Builds another dungeon, and resets the gameState
         buildFloorLayout();
         gameState = GameState.PLAYING;
+        switchTrack(mainThemeSong); // Switches the track back to nomral one
     }
 
     private void spawnEnemiesInQue(){
@@ -792,6 +929,12 @@ public class MainGame implements ApplicationListener {
         }
     }
 
+    public void drawUpgradeTexts(){
+        for(UpgradeText ut : upgradeTexts){
+            ut.draw(spriteBatch, upgradeFont);
+        }
+    }
+
     public void drawPortal() {
         if (portal != null) {
             portal.draw(spriteBatch);
@@ -811,54 +954,110 @@ public class MainGame implements ApplicationListener {
     }
 
     private void drawHUD() {
-        // Base coordinates for the bottom-left corner of the HUD
+        // ==========================================
+        // 1. HEALTH BAR RENDERING (Stays the same)
+        // ==========================================
         float hudX = 10;
         float hudY = 8;
-
-        // The size we want to draw the empty frame
         float frameWidth = 160;
         float frameHeight = 90;
 
-        // Calculate the player's health percentage
         float healthPercent = (float) player.getHealth() / player.getMaxHealth();
-        healthPercent = Math.max(0, healthPercent); // Prevents drawing a negative width if health drops below 0
+        healthPercent = Math.max(0, healthPercent);
 
-        // Variable offsets
-        float greenOffsetX = 47; // Pushes the green bar right, past the red heart
-        float greenOffsetY = 34; // Pushes the green bar up from the bottom edge
-        float maxGreenWidth = 100; // The maximum width of the green bar when at 100% health
-        float greenHeight = 26;  // The thickness of the green bar
+        float greenOffsetX = 32;
+        float greenOffsetY = 30;
+        float maxGreenWidth = 119;
+        float greenHeight = 30;
 
-        // Calculate the dynamic width based on current health
         float currentGreenWidth = maxGreenWidth * healthPercent;
 
-        // Draws the health bar
-        spriteBatch.setColor(com.badlogic.gdx.graphics.Color.GREEN); // Tint the white pixel green
+        spriteBatch.setColor(com.badlogic.gdx.graphics.Color.GREEN);
         spriteBatch.draw(solidColorTexture, hudX + greenOffsetX, hudY + greenOffsetY, currentGreenWidth, greenHeight);
 
-        // resets the sprite batch tint
         spriteBatch.setColor(com.badlogic.gdx.graphics.Color.WHITE);
-
-        // Draws the health bar frame
         spriteBatch.draw(healthBarFrameTexture, hudX, hudY, frameWidth, frameHeight);
+
+
+        // ==========================================
+        // 2. DIFFICULTY TRACKER RENDERING
+        // ==========================================
+
+        // Calculate the floor and ceiling of the current tier so the bar fills up cleanly from 0%
+        float minThreshold = 1.0f;
+        if (difficultyScale >= 6.5f)       minThreshold = 6.5f;
+        else if (difficultyScale >= 4.5f)  minThreshold = 4.5f;
+        else if (difficultyScale >= 3.0f)  minThreshold = 3.0f;
+        else if (difficultyScale >= 2.0f)  minThreshold = 2.0f;
+        else if (difficultyScale >= 1.5f)  minThreshold = 1.5f;
+
+        float currentThreshold = getNextDifficultyThreshold(difficultyScale);
+        float fillPercentage = 1.0f;
+
+        if (currentThreshold > minThreshold) {
+            fillPercentage = (difficultyScale - minThreshold) / (currentThreshold - minThreshold);
+        }
+
+        // Positions for the top right corner of the 800x480 UI frame
+        float barWidth = 200f;
+        float barHeight = 22f;
+        float barX = 800f - barWidth - 20f; // 20 pixels padding from the right edge
+
+        // 🛠️ CHANGED: Increased padding from 20f to 50f to safely pull everything downward
+        float barY = 480f - barHeight - 50f;
+
+        // Draw the dark background tray
+        spriteBatch.setColor(Color.DARK_GRAY);
+        spriteBatch.draw(solidColorTexture, barX, barY, barWidth, barHeight);
+
+        // Draw the Risk-style Firebrick fill bar
+        spriteBatch.setColor(Color.FIREBRICK);
+        spriteBatch.draw(solidColorTexture, barX, barY, barWidth * fillPercentage, barHeight);
+
+        // Construct a crisp pixel outline border
+        spriteBatch.setColor(Color.WHITE);
+        float border = 2f; // Thickness of the outline frame
+        spriteBatch.draw(solidColorTexture, barX - border, barY + barHeight, barWidth + (border * 2), border); // Top
+        spriteBatch.draw(solidColorTexture, barX - border, barY - border, barWidth + (border * 2), border); // Bottom
+        spriteBatch.draw(solidColorTexture, barX - border, barY, border, barHeight);                        // Left
+        spriteBatch.draw(solidColorTexture, barX + barWidth, barY, border, barHeight);                      // Right
+
+        // Standard font
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1.0f); // Ensure it's crisp and at full pixel scale
+        String diffText = "RISK: " + getDifficultyName(difficultyScale);
+        font.draw(spriteBatch, diffText, barX + 10, barY + 17);
+
+        // ==========================================
+        // 3. SPEEDRUN TIMER RENDERING
+        // ==========================================
+        String timeText = getFormattedTime(runTime);
+
+        // Scale the font up to make the clock prominent
+        font.getData().setScale(1.6f);
+        font.setColor(Color.WHITE);
+
+        // Draw it aligned with the left edge of the difficulty bar, sitting just above it
+        font.draw(spriteBatch, timeText, barX, barY + barHeight + 28);
+
+        // Reset the font scale back to normal
+        font.getData().setScale(1.0f);
     }
 
     // Safely queues a track change if it isn't already playing
     private void switchTrack(Music newTrack) {
-        if (currentTrack == newTrack || incomingTrack == newTrack) return;
+        if (currentTrack == newTrack || incomingTrack == newTrack) return; // doesn't switch if it's already queing
         incomingTrack = newTrack;
         isFading = true;
     }
 
     // Handles the cross-fade logic every frame
     private void updateMusic(float deltaTime) {
-        // Step 1: Fade out the old track
         if (isFading && incomingTrack != null) {
             float currentVol = currentTrack.getVolume();
             float newVol = currentVol - (fadeSpeed * deltaTime);
 
             if (newVol <= 0) {
-                // Fade out complete -> Swap to the new track
                 currentTrack.stop();
                 currentTrack = incomingTrack;
                 currentTrack.setVolume(0f);
@@ -873,9 +1072,41 @@ public class MainGame implements ApplicationListener {
         // Step 2: Fade in the new track
         else if (!isFading && currentTrack.getVolume() < 1.0f) {
             float newVol = currentTrack.getVolume() + (fadeSpeed * deltaTime);
-            if (newVol > 1.0f) newVol = 1.0f; // Cap volume at 1.0 (100%)
+            if (newVol > 1.0f) newVol = 1.0f; // Cap volume at 100%
             currentTrack.setVolume(newVol);
         }
+    }
+
+    // FOR THE DIFF BAR:
+    // Returns the name of the difficulty we are in based on the difficulty scaling
+    private String getDifficultyName(float diff) {
+        if (diff < 1.5f) return "EASY";
+        if (diff < 2.2f) return "NORMAL";
+        if (diff < 3.4f) return "HARD";
+        if (diff < 4.5f) return "INSANE";
+        if (diff < 6.5f) return "NIGHTMARE";
+        return "HAHAHA"; // The classic RoR2 final tier!
+    }
+
+    private float getNextDifficultyThreshold(float diff) {
+        if (diff < 1.5f) return 1.5f;
+        if (diff < 2.0f) return 2.0f;
+        if (diff < 3.0f) return 3.0f;
+        if (diff < 4.5f) return 4.5f;
+        if (diff < 6.5f) return 6.5f;
+        return diff; // If maxed out, the bar just stays full
+    }
+
+    // Gets the string for the time in seconds
+    private String getFormattedTime(float totalSeconds) {
+        int minutes = (int) (totalSeconds / 60);
+        int seconds = (int) (totalSeconds % 60);
+
+        // Pads single digits with a leading zero
+        String minStr = (minutes < 10) ? "0" + minutes : String.valueOf(minutes);
+        String secStr = (seconds < 10) ? "0" + seconds : String.valueOf(seconds);
+
+        return minStr + ":" + secStr;
     }
 
     public Player getPlayer() {return player;}
@@ -887,4 +1118,6 @@ public class MainGame implements ApplicationListener {
     public void removeEnemy(Enemy enemy){enemies.remove(enemy);}
     public void addDamageText(DamageText dt){damageTexts.add(dt);}
     public void removeDamageText(DamageText dt){damageTexts.remove(dt);}
+    public void addUpgradeText(UpgradeText ut){upgradeTexts.add(ut);}
+    public void removeUpgradeText(UpgradeText ut){upgradeTexts.remove(ut);}
 }

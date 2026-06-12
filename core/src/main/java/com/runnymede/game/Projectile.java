@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 
@@ -30,6 +31,8 @@ public class Projectile {
     private float lifeSteal; // Heals the player by a percent of damage
     private int bulletBounces; // Number of times the bullet can bounce off of
     private int pierce; // Number of enemies the bullet can hit without despawning
+
+    private HashSet<Enemy> hitEnemies;
 
 
     // constructor
@@ -68,6 +71,11 @@ public class Projectile {
         this.active = true; // Has a boolean for active or not
 
         despawnTimer = 2.0f; // Time until bullet despawns
+
+        hitEnemies = new HashSet<Enemy>();
+
+
+
     }
 
     // GETTERS:
@@ -91,6 +99,17 @@ public class Projectile {
     public float getLifeSteal(){return lifeSteal;}
     public int getBulletBounces(){return bulletBounces;}
     public int getPierce(){return pierce;}
+
+    public boolean hitEnemy(Enemy e){
+        return (hitEnemies.contains(e));
+    }
+
+    public void recordEnemy(Enemy e){
+        if(!hitEnemies.contains(e)){
+            hitEnemies.add(e);
+        }
+    }
+
 
     // SETTERS
     public void setOwner(boolean belongsToPlayer){this.belongsToPlayer = belongsToPlayer;}

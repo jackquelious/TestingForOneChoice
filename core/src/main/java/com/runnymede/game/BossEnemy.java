@@ -2,17 +2,15 @@ package com.runnymede.game;
 
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.MathUtils;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+
+import java.util.*;
 
 public class BossEnemy extends Enemy {
     // Phase and Queue Management
     private List<Integer> attackQueue;
     private int currentPhase;
     private float phaseTimer;
-    private float phaseDuration = 6.0f; // Each phase lasts 6 seconds
+    private float phaseDuration = 5.0f; // Each phase lasts 6 seconds
 
     // Attack specific trackers
     private float shootTimer;
@@ -89,6 +87,7 @@ public class BossEnemy extends Enemy {
 
     @Override
     public void updateAi(float dt, float targetX, float targetY, float radius, GridManager gridManager, Pathfinder pathfinder, MainGame game) {
+        Random rand = new Random();
         phaseTimer += dt;
         shootTimer += dt;
 
@@ -111,13 +110,14 @@ public class BossEnemy extends Enemy {
             case 2: // MINION SPAWN
                 if (!hasSpawnedMinions) {
                     // REDUCED OFFSET: Spawn Drone slightly to the left (-0.75f)
-                    game.addEnemy(new DroneEnemy(getCenterXPos() - 0.75f, getCenterYPos(), 1.2f, 4.0f, 1.0f,
+                    game.addEnemy(new DroneEnemy(getCenterXPos() - 0.5f, getCenterYPos(), 1.5f,
+                        6.5f, 5.0f,
                         droneTexture, circleTexture, explosionTexture,
-                        2.0f, 1.5f, 0.5f, 0.7f));
+                        0.6f, 1.5f, 0.42f, 0.8f));
 
                     // REDUCED OFFSET: Spawn Sentry slightly to the right (+0.75f)
-                    game.addEnemy(new SentryEnemy(getCenterXPos() + 0.75f, getCenterYPos(), 5.0f, 1.0f,
-                        2.5f, 2.0f, 0.4f,
+                    game.addEnemy(new SentryEnemy(getCenterXPos() + 0.5f, getCenterYPos(), 15.0f,
+                        6.0f, 2.5f, 2.0f, 0.4f,
                         sentryTexture, laserTexture));
 
                     hasSpawnedMinions = true;
@@ -127,20 +127,23 @@ public class BossEnemy extends Enemy {
 
             case 3: // RAPID FIRE MACHINE GUN
                 navigateTowardsPlayer(dt * 0.5f, targetX, targetY, pathfinder, gridManager);
-                if (shootTimer >= 0.15f) {
+                if (shootTimer >= 0.17f) {
                     shootTimer = 0f;
-                    fireBullet(targetX, targetY, game, 0);
+                    float randomAngleOffset = (rand.nextBoolean()) ? rand.nextFloat() * 0.6f : -rand.nextFloat() * 0.6f;
+                    fireBullet(targetX, targetY, game, randomAngleOffset);
                 }
                 break;
 
             case 4: // SHOTGUN VOLLEYS
-                if (shootTimer >= 1.0f && volleyCount < 5) {
+                if (shootTimer >= 0.6f && volleyCount < 8) {
                     shootTimer = 0f;
                     volleyCount++;
-                    // Fire 3 bullets in a spread (-15 degrees, 0, +15 degrees)
-                    fireBullet(targetX, targetY, game, -0.25f);
+                    // Fire 5 bullets in a spread
+                    fireBullet(targetX, targetY, game, -0.6f);
+                    fireBullet(targetX, targetY, game, -0.3f);
                     fireBullet(targetX, targetY, game, 0f);
-                    fireBullet(targetX, targetY, game, 0.25f);
+                    fireBullet(targetX, targetY, game, 0.3f);
+                    fireBullet(targetX, targetY, game, 0.6f);
                 }
                 break;
 
@@ -158,8 +161,9 @@ public class BossEnemy extends Enemy {
         float actualTargetX = getCenterXPos() + MathUtils.cos(angle) * 5f;
         float actualTargetY = getCenterYPos() + MathUtils.sin(angle) * 5f;
 
-        Projectile proj = new Projectile(false, 3.5f, 0.18f, 0f, 0f, 1.0f, 1, 1,
-            getCenterXPos(), getCenterYPos(), actualTargetX, actualTargetY, bulletTexture);
+        Projectile proj = new Projectile(false, 2.5f, 0.18f, 0f, 0f,
+            8.2f, 1, 1, getCenterXPos(), getCenterYPos(), actualTargetX,
+            actualTargetY, bulletTexture);
         game.addProjectile(proj);
     }
 }

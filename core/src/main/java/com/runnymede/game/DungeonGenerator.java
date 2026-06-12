@@ -121,7 +121,7 @@ public class DungeonGenerator {
         int currentGridY = 3;
         placeRoomInSlot(currentGridX, currentGridY, Room.RoomType.START);
 
-        int roomsToPlace = 10;
+        int roomsToPlace = 8;
         int roomsPlaced = 0;
 
         // Phase 3 & 4: The Drunkard's Walk Selection and Placement Loop

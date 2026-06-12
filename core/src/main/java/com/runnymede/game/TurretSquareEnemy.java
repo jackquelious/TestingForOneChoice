@@ -13,12 +13,12 @@ public class TurretSquareEnemy extends Enemy {
     private float currentAngle;
 
     public TurretSquareEnemy(float x, float y, Texture texture, Texture bulletTexture) {
-        super(x, y, 0f, 15.0f, 1.0f, texture);
+        super(x, y, 0f, 28.0f, 1.5f, texture);
         this.bulletTexture = bulletTexture;
         this.currentAngle = 0f;
 
-        this.sprite.setSize(TURRET_SIZE, TURRET_SIZE);
-        this.hitBox.setSize(TURRET_SIZE, TURRET_SIZE);
+        this.sprite.setSize(TURRET_SIZE, 1.5f * TURRET_SIZE);
+        this.hitBox.setSize(TURRET_SIZE, 1.5f * TURRET_SIZE);
 
         // Sets the rotation anchor to the exact middle of the sprite
         this.sprite.setOriginCenter();
@@ -36,7 +36,7 @@ public class TurretSquareEnemy extends Enemy {
         this.sprite.setRotation(currentAngle * MathUtils.radDeg);
 
         // Periodically fire 4 bullets in a cross pattern based on current rotation
-        if (shootTimer >= 0.3f) {
+        if (shootTimer >= 0.25f) {
             shootTimer = 0f;
 
             for (int i = 0; i < 4; i++) {
@@ -44,7 +44,8 @@ public class TurretSquareEnemy extends Enemy {
                 float tX = getCenterXPos() + MathUtils.cos(fireAngle) * 5f;
                 float tY = getCenterYPos() + MathUtils.sin(fireAngle) * 5f;
 
-                Projectile proj = new Projectile(false, 1.4f, 0.15f, 0f, 0f, 1.0f, 1, 1,
+                Projectile proj = new Projectile(false, 1.3f, 0.13f, 0f,
+                    0f, 6.0f, 1, 1,
                     getCenterXPos(), getCenterYPos(), tX, tY, bulletTexture);
                 game.addProjectile(proj);
             }

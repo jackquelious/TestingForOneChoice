@@ -11,11 +11,11 @@ import com.badlogic.gdx.graphics.Color;
 public class Player {
     //  CONSTANTS (default values):
     private final float PLAYER_SIZE = 0.25f;
-    private final int DAMAGE = 1;
+    private final float DAMAGE = 1;
     private final float BULLET_SIZE = 0.18f;
     private final float BULLET_SPEED = 5.0f;
     private final float CRIT_CHANCE = 0.0f;
-    private final float LIFE_STEAL = 0.0f;
+    private final float LIFE_STEAL = 0;
     private final int BULLET_BOUNCES = 1;
     private final int PIERCE = 1;
 
@@ -25,7 +25,7 @@ public class Player {
     private float DASH_SPEED_MULTIPLIER;
 
     // SHIELD TUNING CONSTANTS:
-    private final float SHIELD_RECHARGE_TIME = 8.0f; // Seconds before bubble comes back
+    private final float SHIELD_RECHARGE_TIME = 5.0f; // Seconds before bubble comes back
     private final float SHIELD_SIZE_MULTIPLIER = 2.5f; // How much larger the bubble is than the player
 
     // CLASS VARIABLES:
@@ -43,7 +43,7 @@ public class Player {
     private int maxHealth;
     private int health;
     private float speed;
-    private int damage;
+    private float damage;
     private float bulletSize;
     private float bulletSpeed;
     private float critChance;
@@ -70,7 +70,8 @@ public class Player {
     private float dashDirY = 0f;
 
     // Constructor
-    public Player(float x, float y, float speed, int maxHealth, float DASH_DURATION, float DASH_COOLDOWN, float DASH_SPEED_MULTIPLIER) {
+    public Player(float x, float y, float speed, int maxHealth, float DASH_DURATION,
+                  float DASH_COOLDOWN, float DASH_SPEED_MULTIPLIER) {
         playerTexture = new Texture("playerSquare.png");
         playerSprite = new Sprite(playerTexture);
         playerSprite.setSize(PLAYER_SIZE, PLAYER_SIZE);
@@ -128,7 +129,7 @@ public class Player {
     public int getMaxHealth(){return maxHealth;}
     public int getBulletBounces(){return bulletBounces;}
     public int getPierce(){return pierce;}
-    public int getDamage(){return damage;}
+    public float getDamage(){return damage;}
     public boolean isDashing() { return dashTimer > 0f; }
     public boolean isAlive(){return health > 0;}
 
@@ -145,7 +146,7 @@ public class Player {
     public void setMaxHealth(int newMaxHealth){maxHealth = newMaxHealth;}
     public void setBulletBounces(int newBB){bulletBounces = newBB;}
     public void setPierce(int newPierce){pierce = newPierce;}
-    public void setDamage(int newdmg){damage = newdmg;}
+    public void setDamage(float newdmg){damage = newdmg;}
 
     public void heal(float healAmt){
         if((health + healAmt) <= maxHealth) health += healAmt;
@@ -318,10 +319,10 @@ public class Player {
     public void applyUpgrade(MainGame.LoopUpgrade upgrade) {
         switch (upgrade) {
             case LIFESTEAL:
-                this.lifeSteal += 0.05f;
+                this.lifeSteal += 0.25f;
                 break;
             case BOUNCES:
-                this.bulletBounces += 1;
+                this.bulletBounces += 2;
                 break;
             case SHIELD:
                 this.hasShield = true;

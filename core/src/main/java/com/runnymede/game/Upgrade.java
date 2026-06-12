@@ -62,19 +62,17 @@ public class Upgrade {
     // Randomizes the effect that the upgrade will have
     public void randomizeType(){
         Random rand = new Random(); // Creates an instance of the random class
-        int num = rand.nextInt(12); // Generates a num (0 - 11)
+        int num = rand.nextInt(13); // Generates a num (0 - 12)
         String result = "none"; // Initializes the result variable
 
         // Based on the random number, the type will be different things
-        if(num <= 2) result = "damage";
-        else if (num <= 4) result = "health";
-        else if (num == 5) result = "bulletSize";
-        else if (num == 6) result = "bulletSpeed";
-        else if (num == 7) result = "bulletBounces";
-        else if (num == 8) result = "critChance";
-        else if (num == 9) result = "speed";
-        else if (num == 10) result = "lifeSteal";
-        else if (num == 11) result = "pierce";
+        if(num <= 3) result = "damage";
+        else if (num <= 5) result = "health";
+        else if (num <= 8) result = "heal";
+        else if (num == 9) result = "bulletSpeed";
+        else if (num == 10) result = "critChance";
+        else if (num == 11) result = "speed";
+        else if (num == 12) result = "pierce";
 
         type = result; // Sets the type
     }
@@ -83,16 +81,14 @@ public class Upgrade {
     // Increases a random stat based on the type
     public void collect(Player player){
         // Increases stat based on what type the upgrade was
-        if(type.equals("damage")) player.setDamage(player.getDamage() + 1); // Adds one to damage
-        if(type.equals("health")) player.setMaxHealth(player.getMaxHealth() + 1); // Adds one maxHealth
-        if(type.equals("bulletSize")) player.setBulletSize(player.getBulletSize() * 1.1f); // Multiplies bullet size by 1.1
-        if(type.equals("bulletSpeed")) player.setBulletSpeed(player.getBulletSpeed() * 1.1f); // multiplies bullet speed
-        if(type.equals("bulletBounces")) player.setBulletBounces(player.getBulletBounces() + 1); // Increases bullet bounces
+        if(type.equals("damage")) player.setDamage(player.getDamage() * 1.2f); // Adds  to damage
+        if(type.equals("health")) player.setMaxHealth(player.getMaxHealth() + 8); // Adds  maxHealth
+        if(type.equals("bulletSpeed")) player.setBulletSpeed(player.getBulletSpeed() * 1.3f); // multiplies bullet speed
+        if(type.equals("heal")) player.heal(50); // heals the player
         if(type.equals("critChance")){ // Increases crit chance to a max of 100%
-            player.setCritChance(Math.min(1f, player.getCritChance() + 0.05f));
+            player.setCritChance(Math.min(1f, player.getCritChance() + 0.15f));
         }
-        if(type.equals("speed")) player.setSpeed(player.getSpeed() * 1.05f); // Increases speed by 5%
-        if(type.equals("lifeSteal")) player.setLifeSteal(Math.min(1f, player.getLifeSteal() + 0.05f)); // Increases lifeSteal to a max of 100%
+        if(type.equals("speed")) player.setSpeed(player.getSpeed() * 1.15f); // Increases speed by 15%
         if(type.equals("pierce")) player.setPierce(player.getPierce() + 1); // Increases pierce
 
         despawn();
@@ -102,7 +98,7 @@ public class Upgrade {
         sprite.draw(batch);
     }
 
-    // FIXED: Moves both the visual frame AND structural boundary clear off screen stage bounds
+    // Moves both the visual frame AND structural boundary clear off screen stage bounds
     public void despawn(){
         sprite.setPosition(-20, -20);
         hitBox.setPosition(-20, -20);
