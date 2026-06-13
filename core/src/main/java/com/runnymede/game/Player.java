@@ -319,7 +319,7 @@ public class Player {
     public void applyUpgrade(MainGame.LoopUpgrade upgrade) {
         switch (upgrade) {
             case LIFESTEAL:
-                this.lifeSteal += 0.25f;
+                this.lifeSteal += 1.0f;
                 break;
             case BOUNCES:
                 this.bulletBounces += 2;
