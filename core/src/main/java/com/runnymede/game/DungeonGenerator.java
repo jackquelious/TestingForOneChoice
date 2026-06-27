@@ -145,11 +145,11 @@ public class DungeonGenerator {
 
                 // The second to last room placed becomes the BOSS room
                 if (roomsPlaced == roomsToPlace - 2) {
-                    type = Room.RoomType.BOSS;
+                    type = Room.RoomType.PORTAL;
                 }
                 // The very last room placed becomes the PORTAL room
                 else if (roomsPlaced == roomsToPlace - 1) {
-                    type = Room.RoomType.PORTAL;
+                    type = Room.RoomType.BOSS;
                 }
 
                 placeRoomInSlot(currentGridX, currentGridY, type);
