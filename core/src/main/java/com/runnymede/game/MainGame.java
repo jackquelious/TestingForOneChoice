@@ -74,7 +74,8 @@ public class MainGame implements ApplicationListener {
 
 
     // Textures
-    Texture bulletTexture;
+    Texture playerBulletTexture;
+    Texture enemyBulletTexture;
     Texture enemyTexture;
     Texture sentryTexture;
     Texture laserTexture;
@@ -156,7 +157,8 @@ public class MainGame implements ApplicationListener {
 
         wallTexture = new Texture("wallTexture.jpg");
         enemyTexture = new Texture("enemySquare.png");
-        bulletTexture = new Texture("bullet.png");
+        playerBulletTexture = new Texture("playerBulletTexture.png");
+        enemyBulletTexture = new Texture("enemyBulletTexture.png");
         sentryTexture = new Texture("sentrySquare.png");
         laserTexture = new Texture("laserTexture.png");
         droneTexture = new Texture("droneTexture.png");
@@ -395,7 +397,7 @@ public class MainGame implements ApplicationListener {
             // adds the boss enemy to the spawn list
             enemiesToSpawn.add(new BossEnemy(worldX, worldY,
                 bossTexture,         // Fixed: Actual boss texture
-                bulletTexture,       // standard bullet
+                enemyBulletTexture,       // standard bullet
                 bossTurretTexture,   // turret square
                 droneTexture,        // drone body
                 crosshairTexture,    // Fixed: Drone warning circle
@@ -472,7 +474,7 @@ public class MainGame implements ApplicationListener {
                     float attackTime = Math.max(RANGED_BASE_ATTACK_TIME - (difficultyScale - 1), 0.5f);
                     enemiesToSpawn.add(new RangedEnemy(worldX, worldY, RANGED_BASE_SPEED, health, dmg,
                         enemyTexture, RANGED_BASE_RANGE, attackTime, RANGED_BASE_RETREAT_TIME, bulletSpeed,
-                        RANGED_BASE_BULLET_SIZE, bulletTexture));
+                        RANGED_BASE_BULLET_SIZE, enemyBulletTexture));
                 }
                 spawned++; // increase number of spawned enemies
             }
@@ -642,7 +644,7 @@ public class MainGame implements ApplicationListener {
 
             Projectile newBullet = new Projectile(true, player.getBulletSpeed(), player.getBulletSize(),
                 player.getCritChance(), player.getLifeSteal(), player.getDamage(), player.getPierce(),
-                player.getBulletBounces(), spawnX, spawnY, mousePos.x, mousePos.y, bulletTexture);
+                player.getBulletBounces(), spawnX, spawnY, mousePos.x, mousePos.y, playerBulletTexture);
 
             projectiles.add(newBullet);
         }
